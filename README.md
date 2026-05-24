@@ -1,125 +1,79 @@
 # University Blockchain Identity Admin Dashboard
 
-A modern and professional admin dashboard built using React + Vite for managing a University Blockchain Identity Verification System powered by blockchain technology.
+A modern and professional admin dashboard developed using React and Vite for managing a blockchain-based university identity verification system.
 
 ---
 
-## 📌 Project Overview
+# 📌 Overview
 
-This project is designed for university administrators to manage:
+This project is designed to help university administrators manage student identity verification and blockchain monitoring through a clean and secure dashboard interface.
 
-- Student identity verification
-- Blockchain transaction monitoring
-- Audit logging and tracking
-- System configuration
-- User and verifier management
-- Security and authentication settings
+The system includes:
 
-The dashboard follows a clean enterprise-level UI inspired by modern SaaS admin panels.
+- Student Management
+- Blockchain Transaction Monitoring
+- Audit Logs
+- Security Settings
+- Admin Profile Management
+- Verification Tracking
+- System Configuration
 
 ---
 
-# 🚀 Tech Stack
+# 🚀 Technologies Used
 
-| Technology | Purpose |
-|---|---|
-| React.js | Frontend Library |
-| Vite | Fast Development Build Tool |
-| React Router DOM | Routing |
-| React Icons | Icons |
-| CSS3 | Styling |
-| JavaScript | Application Logic |
+- React.js
+- Vite
+- JavaScript
+- CSS3
+- React Router DOM
+- React Icons
 
 ---
 
 # ✨ Features
 
 ## 🔐 Authentication
-- Admin Login Page
+- Admin Login Interface
 - Secure Login UI
-- Admin Session Interface
+- Session Management Layout
 
 ## 📊 Dashboard Overview
-- Total Enrolled Students
+- Total Students Statistics
 - Gas Balance Monitoring
 - AI Face Match Statistics
-- Verification Request Tracking
+- Verification Request Monitoring
 - System Reports
 
 ## 👥 User Management
 - Student Directory
 - Verification Status
-- Pending Verification Monitoring
-- Search and Manage Users
+- Pending Requests
+- User Search and Filtering
 
 ## 📜 Audit Logs
 - System Activity Tracking
-- Verification Logs
-- Blockchain Event Records
-- Export Logs Feature
+- Verification History
+- Blockchain Event Logs
+- Export Functionality
 
-## ⛓ Blockchain Monitoring
-- Polygon Network Status
+## ⛓ Blockchain Status
+- Polygon Network Monitoring
 - Gas Usage Analytics
-- Smart Contract Information
-- Recent Blockchain Transactions
+- Smart Contract Details
+- Blockchain Transaction Records
 
 ## ⚙️ Settings
-- Security Settings
-- Blockchain Configuration
-- API Credentials
-- SMTP Configuration
 - Notification Preferences
+- Security Configuration
+- Blockchain Configuration
+- API Credentials Management
 
 ## 👤 Admin Profile
 - Personal Information
 - Account Status
-- Security Management
+- Security Controls
 - Activity Summary
-
----
-
-# 🖼 UI Preview
-
-## 🔑 Login Page
-
-![Login Page](./screenshots/login.png)
-
----
-
-## 📊 Dashboard Overview
-
-![Dashboard](./screenshots/dashboard.png)
-
----
-
-## 👥 User Management
-
-![User Management](./screenshots/user-management.png)
-
----
-
-## 📜 Audit Logs
-
-![Audit Logs](./screenshots/audit-logs.png)
-
----
-
-## ⛓ Blockchain Status
-
-![Blockchain Status](./screenshots/blockchain-status.png)
-
----
-
-## ⚙️ Settings
-
-![Settings](./screenshots/settings.png)
-
----
-
-## 👤 Admin Profile
-
-![Profile](./screenshots/profile.png)
 
 ---
 
@@ -161,7 +115,7 @@ src
 
 # ⚙️ Installation Guide
 
-## 1️⃣ Clone Repository
+## 1. Clone Repository
 
 ```bash
 git clone https://github.com/your-username/university-blockchain-admin-dashboard.git
@@ -169,7 +123,7 @@ git clone https://github.com/your-username/university-blockchain-admin-dashboard
 
 ---
 
-## 2️⃣ Navigate Into Project
+## 2. Navigate to Project Folder
 
 ```bash
 cd university-blockchain-admin-dashboard
@@ -177,7 +131,7 @@ cd university-blockchain-admin-dashboard
 
 ---
 
-## 3️⃣ Install Dependencies
+## 3. Install Dependencies
 
 ```bash
 npm install
@@ -185,7 +139,7 @@ npm install
 
 ---
 
-## 4️⃣ Install Required Packages
+## 4. Install Required Packages
 
 ```bash
 npm install react-router-dom react-icons
@@ -193,7 +147,7 @@ npm install react-router-dom react-icons
 
 ---
 
-## 5️⃣ Run Development Server
+## 5. Run Development Server
 
 ```bash
 npm run dev
@@ -201,7 +155,7 @@ npm run dev
 
 ---
 
-## 6️⃣ Open Browser
+## 6. Open Browser
 
 ```bash
 http://localhost:5173
@@ -209,26 +163,30 @@ http://localhost:5173
 
 ---
 
-# 🎨 Design Theme
+# 🎨 UI Design
 
-The UI design follows:
+The dashboard follows a modern enterprise UI design with:
 
-- Modern Enterprise Dashboard Style
-- Clean White Cards
 - Dark Navy Sidebar
-- Rounded Corners
-- Soft Shadows
+- White Content Cards
+- Rounded Components
 - Minimal Professional Layout
+- Soft Shadows
+- Clean Typography
 
-### Main Theme Colors
+---
 
-| Color | Hex |
+# 🎯 Main Modules
+
+| Module | Description |
 |---|---|
-| Navy Blue | `#022B5F` |
-| White | `#FFFFFF` |
-| Light Gray | `#F5F5F5` |
-| Success Green | `#22C55E` |
-| Danger Red | `#EF4444` |
+| Login | Admin Authentication |
+| Dashboard | Analytics and Overview |
+| User Management | Student Management |
+| Audit Logs | Activity Tracking |
+| Blockchain Status | Blockchain Monitoring |
+| Settings | System Configuration |
+| Profile | Admin Information |
 
 ---
 
@@ -236,27 +194,26 @@ The UI design follows:
 
 - JWT Authentication
 - Backend API Integration
-- Firebase Authentication
-- MongoDB / MySQL Database
+- MongoDB/MySQL Database
+- Responsive Mobile Design
 - Dark Mode
-- Responsive Mobile Layout
 - Real Blockchain Integration
-- AI Face Recognition API
-- Chart Analytics
+- AI Face Recognition
+- Advanced Analytics Charts
 
 ---
 
-# 📚 Learning Objectives
+# 📚 Learning Outcomes
 
 This project demonstrates:
 
 - React Component Architecture
-- Dashboard UI Development
-- React Routing
+- Modern Dashboard Design
+- Frontend Routing
 - Reusable Components
-- Admin Panel Design
-- Blockchain Monitoring Interface
-- Clean Frontend Structure
+- Admin Panel Development
+- Blockchain Monitoring UI
+- Clean Project Structure
 
 ---
 
@@ -270,10 +227,10 @@ University Capstone Project
 
 # 📄 License
 
-This project is created for educational and academic purposes.
+This project is developed for educational and academic purposes.
 
 ---
 
 # ⭐ Support
 
-If you like this project, give it a ⭐ on GitHub.
+If you like this project, give it a star on GitHub.
