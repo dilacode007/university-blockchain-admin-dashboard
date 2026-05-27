@@ -219,7 +219,7 @@ This project demonstrates:
 
 # 👨‍💻 Developed By
 
-Chamidu Sandeepa
+Hashen Dilshan
 
 University Capstone Project
 
