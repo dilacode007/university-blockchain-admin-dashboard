@@ -1,4 +1,5 @@
 node_modules/
+instruction.md
 dist/
 .npm-cache/
 .gitdata/
