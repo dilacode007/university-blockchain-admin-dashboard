@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Activity,
@@ -6,7 +6,8 @@ import {
   BadgeCheck,
   BarChart3,
   Bell,
-  Blocks,
+  BlocksIcon as _Blocks,
+  BookOpen,
   BriefcaseBusiness,
   Calendar,
   Check,
@@ -30,6 +31,7 @@ import {
   Search,
   Shield,
   SlidersHorizontal,
+  Trash2,
   User,
   UserRoundCog,
   Users,
@@ -42,42 +44,13 @@ const navItems = [
   { id: 'dashboard', label: 'Dashboard Overview', icon: BarChart3 },
   { id: 'users', label: 'User Management', icon: Users },
   { id: 'audit', label: 'Audit Logs', icon: ClipboardList },
+  { id: 'exams', label: 'Exam Management', icon: BookOpen },
   { id: 'blockchain', label: 'Blockchain Status', icon: Database },
   { id: 'settings', label: 'Settings', icon: SlidersHorizontal }
 ];
 
-const auditRows = [
-  ['2026-03-25 14:32:15', 'Tharaka Bandara', 'Verification Approved', 'Ms. Fernando', '0x5d6e...4f2a', '192.168.1.52', 'Success'],
-  ['2026-03-24 15:30:19', 'Nimali Wijesinghe', 'Login', 'N/A', 'N/A', '10.0.0.45', 'Success'],
-  ['2026-03-23 11:20:45', 'Rohan Dissanayake', 'Hash Stored on Polygon', 'Mr. Silva', '0x9a8b...3c1d', '192.168.1.67', 'Success'],
-  ['2026-03-23 10:15:53', 'Chamari Gunaratne', 'Verification Rejected', 'Dr. Perera', 'N/A', '192.168.1.45', 'Failure'],
-  ['2026-03-22 14:55:10', 'Lahiru Rajapaksa', 'Verification Approved', 'Ms. Fernando', '0x2b3c...5d6e', '192.168.1.52', 'Success'],
-  ['2026-03-20 09:30:25', 'Sanduni Amarasinghe', 'Hash Stored on Polygon', 'Mr. Silva', '0x7f8e...9d0c', '192.168.1.67', 'Success'],
-  ['2026-03-18 16:20:40', 'Pradeep Gamage', 'Login', 'N/A', 'N/A', '10.0.0.78', 'Success'],
-  ['2026-03-15 13:45:18', 'Malini Herath', 'Verification Approved', 'Dr. Perera', '0x4e5f...6a7b', '192.168.1.45', 'Success'],
-  ['2026-03-10 11:30:55', 'Ruwan Jayasuriya', 'Hash Stored on Polygon', 'Ms. Fernando', '0xa8c9...ae1f', '192.168.1.52', 'Success'],
-  ['2026-03-08 10:10:23', 'Kavinda Samaraweera', 'Verification Rejected', 'Mr. Silva', 'N/A', '192.168.1.67', 'Failure']
-];
-
-const students = [
-  ['Kasun Perera', '991234567V', 'kasun.p@student.university.lk', '2024-01-15', 'Active', 'Verified'],
-  ['Nimal Silva', '982345678V', 'nimal.s@student.university.lk', '2024-02-20', 'Active', 'Verified'],
-  ['Amara Fernando', '973456789V', 'amara.f@student.university.lk', '2024-03-10', 'Pending', 'Pending'],
-  ['Saman Kumara', '964567890V', 'saman.k@student.university.lk', '2024-01-22', 'Active', 'Verified']
-];
-
-const verifiers = [
-  ['V-2047', 'Dr. Perera', 'k.perera@university.lk', 'Computer Science'],
-  ['V-2089', 'Mr. Silva', 'r.silva@university.lk', 'Engineering'],
-  ['V-2101', 'Ms. Fernando', 'a.fernando@university.lk', 'Administration'],
-  ['V-2134', 'Dr. Jayawardena', 's.jayawardena@university.lk', 'IT Services']
-];
-
-const chainTransactions = [
-  ['0x7a3f9bc2c58e1f4a6b...', '2026-03-25 14:32:15', 'Student Verification', '0.0024 MATIC', '45,892,341'],
-  ['0x80c4a3d6e9f2b5c8d...', '2026-03-25 14:28:42', 'Credential Issued', '0.0031 MATIC', '45,892,338'],
-  ['0x3c2d58ef1a4b7c9d2e...', '2026-03-25 13:58:19', 'Batch Verification', '0.0018 MATIC', '45,892,312']
-];
+const chainTransactions = [];
+const verifiers = [];
 
 function App() {
   const [isAuthed, setIsAuthed] = useState(false);
@@ -107,6 +80,7 @@ function App() {
           {page === 'dashboard' && <DashboardPage />}
           {page === 'users' && <UsersPage />}
           {page === 'audit' && <AuditPage />}
+          {page === 'exams' && <ExamManagementPage />}
           {page === 'blockchain' && <BlockchainPage />}
           {page === 'settings' && <SettingsPage />}
           {page === 'profile' && <ProfilePage />}
@@ -117,22 +91,69 @@ function App() {
 }
 
 function LoginPage({ onLogin }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
+    
+    if (!email.endsWith('@ms.sab.ac.lk')) {
+      setError('Access denied: Email must belong to @ms.sab.ac.lk domain.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`http://${window.location.hostname}:5000/api/admin/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      // Store the token and admin info
+      localStorage.setItem('adminToken', data.token);
+      localStorage.setItem('adminUser', JSON.stringify(data.admin));
+      
+      onLogin();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <main className="login-screen">
-      <form className="login-card" onSubmit={(event) => { event.preventDefault(); onLogin(); }}>
+      <form className="login-card" onSubmit={handleSubmit}>
         <div className="login-mark"><Shield size={38} /></div>
         <h1>University Blockchain Identity</h1>
         <p>Admin Dashboard Login</p>
+        
+        {error && <div style={{ color: '#e74c3c', marginBottom: '1rem', fontSize: '0.9rem', textAlign: 'center', backgroundColor: '#fdf0f0', padding: '0.5rem', borderRadius: '4px' }}>{error}</div>}
+
         <label>
-          Username
-          <span><User size={16} /><input placeholder="Enter your username" /></span>
+          Email Address
+          <span><User size={16} /><input type="email" placeholder="admin@ms.sab.ac.lk" value={email} onChange={(e) => setEmail(e.target.value)} required /></span>
         </label>
         <label>
           Password
-          <span><Lock size={16} /><input type="password" placeholder="Enter your password" /></span>
+          <span><Lock size={16} /><input type="password" placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} required /></span>
         </label>
-        <button className="primary-btn" type="submit">Sign In</button>
-        <small>Demo: Use any username and password to login</small>
+        <button className="primary-btn" type="submit" disabled={loading}>
+          {loading ? 'Signing in...' : 'Sign In'}
+        </button>
+        <small>Only authorized @ms.sab.ac.lk accounts</small>
       </form>
     </main>
   );
@@ -164,6 +185,7 @@ function Sidebar({ page, setPage, sidebarOpen, setSidebarOpen }) {
 }
 
 function Topbar({ menuOpen, setMenuOpen, onNavigate, onLogout, onOpenSidebar }) {
+  const adminUser = JSON.parse(localStorage.getItem('adminUser')) || {};
   return (
     <header className="topbar">
       <button className="icon-btn mobile-menu" onClick={onOpenSidebar} aria-label="Open navigation"><Menu size={20} /></button>
@@ -171,7 +193,7 @@ function Topbar({ menuOpen, setMenuOpen, onNavigate, onLogout, onOpenSidebar }) 
       <div className="account">
         <button className="account-button" onClick={() => setMenuOpen(!menuOpen)}>
           <CircleUserRound size={22} />
-          <span><strong>Mrs. Abeythunga</strong><small>System Admin</small></span>
+          <span><strong>{adminUser.name || 'Admin'}</strong><small>{adminUser.role || 'System Admin'}</small></span>
           <ChevronDown size={15} />
         </button>
         {menuOpen && (
@@ -211,17 +233,46 @@ function MetricCard({ icon: Icon, label, value, tone, detail, children }) {
 }
 
 function DashboardPage() {
+  const adminUser = JSON.parse(localStorage.getItem('adminUser')) || {};
+  const [users, setUsers] = useState([]);
+  const [verifications, setVerifications] = useState([]);
+  const [verifiers, setVerifiers] = useState([]);
+  const [audits, setAudits] = useState([]);
+
+  useEffect(() => {
+    const fetchData = () => {
+      fetch(`http://${window.location.hostname}:5000/api/admin/students`).then(res => res.json()).then(data => setUsers(data.students || []));
+      fetch(`http://${window.location.hostname}:5000/api/admin/verifications`).then(res => res.json()).then(data => setVerifications(data.verifications || []));
+      fetch(`http://${window.location.hostname}:5000/api/admin/verifiers`).then(res => res.json()).then(data => setVerifiers(data.verifiers || []));
+      fetch(`http://${window.location.hostname}:5000/api/admin/audits`).then(res => res.json()).then(data => setAudits(data.audits || []));
+    };
+    
+    fetchData(); // Fetch immediately on mount
+    const interval = setInterval(fetchData, 3000); // Poll every 3 seconds
+    return () => clearInterval(interval); // Cleanup on unmount
+  }, []);
+
+  const totalUsers = users.length;
+  const pendingUsers = users.filter(u => u.isVerified === false).length;
+  const pendingRequests = verifications.filter(v => v.status === 'Pending').length;
+  const inProgressRequests = verifications.filter(v => v.status === 'Approved').length; 
+  const successfulActionsToday = audits.filter(a => {
+    const isToday = new Date(a.timestamp).toDateString() === new Date().toDateString();
+    const isSuccess = !a.event.toLowerCase().includes('reject') && !a.event.toLowerCase().includes('fail');
+    return isToday && isSuccess;
+  }).length;
+  
   return (
     <>
-      <PageHeader title="Dashboard Overview" subtitle="University Blockchain Identity Verification System" />
+      <PageHeader title="Dashboard Overview" subtitle="System vitals and pending verification actions" />
       <div className="dashboard-grid">
-        <MetricCard label="Total Enrolled Students" value="2,850" icon={Users} detail="+18% from last month">
+        <MetricCard label="Total Enrolled Students" value={totalUsers.toString()} icon={Users} detail="Live database feed">
           <MiniLine />
         </MetricCard>
         <MetricCard label="Polygon Gas Balance (MATIC)" value="12.47" icon={Wallet} tone="danger" detail="Daily Consumption: ~2.3 MATIC  Est. Days Remaining: 5 days">
           <div className="alert-box"><AlertTriangle size={14} /> Low Balance Alert: Gas balance is below threshold. Please top up to ensure continuous blockchain operations.</div>
         </MetricCard>
-        <MetricCard label="Avg. AI Face Match Time" value="1.24s" icon={Gauge} detail="Total Verifications Today: 247  Success Rate: 98.4%">
+        <MetricCard label="Avg. AI Face Match Time" value="1.24s" icon={Gauge} detail={`Total Verifications: ${verifications.length}`}>
           <div className="target-row"><span>Performance Target:</span><strong>&lt; 2.0s</strong></div>
           <div className="progress"><span style={{ width: '86%' }} /></div>
         </MetricCard>
@@ -229,62 +280,189 @@ function DashboardPage() {
 
       <h2 className="section-title">Pending verification requests</h2>
       <div className="mini-metrics">
-        <MetricCard label="Pending" value="12" />
-        <MetricCard label="In Progress" value="5" />
-        <MetricCard label="Completed Today" value="247" />
-        <MetricCard label="Avg. Wait Time" value="8m" />
+        <MetricCard label="Pending Verifications" value={pendingRequests.toString()} />
+        <MetricCard label="Approved Verifications" value={inProgressRequests.toString()} />
+        <MetricCard label="Pending Students" value={pendingUsers.toString()} />
+        <MetricCard label="Completed Today" value={successfulActionsToday.toString()} />
       </div>
 
       <Panel title="Audit Logs" subtitle="Group 14 Requirement: Detailed system activity tracking" action={<button className="ghost-btn"><Download size={14} /> Export Logs</button>}>
-        <AuditTable compact />
+        <AuditTable 
+          compact 
+          customRows={audits} 
+          usersMap={{
+            ...Object.fromEntries(users.map(u => [u.id, u.name])),
+            ...Object.fromEntries(verifiers.map(v => [v.id, v.name]))
+          }} 
+        />
       </Panel>
 
       <Panel title="Role Management" subtitle="Manage staff access and verifier permissions">
         <table>
           <thead><tr><th>Verifier ID</th><th>Name</th><th>Email</th><th>Department</th><th>Current Role</th><th>Actions</th></tr></thead>
-          <tbody>{verifiers.map((row) => <tr key={row[0]}>{row.map((cell) => <td key={cell}>{cell}</td>)}<td><Badge>Verifier</Badge></td><td><button className="small-btn">Manage Role <ChevronDown size={13} /></button></td></tr>)}</tbody>
-        </table>
-      </Panel>
-      <div className="center-action"><button className="primary-btn"><FileText size={15} /> Generate System Report for Mrs. Abeythunga</button></div>
-    </>
-  );
-}
-
-function UsersPage() {
-  return (
-    <>
-      <PageHeader title="User Management" subtitle="Manage student accounts and verification status" action={<button className="primary-btn"><Plus size={15} /> Add New Student</button>} />
-      <div className="stats-row">
-        <MetricCard icon={Users} label="Total Students" value="2,850" />
-        <MetricCard label="Verified" value="2,742" tone="success" />
-        <MetricCard label="Pending Verification" value="108" tone="warning" />
-      </div>
-      <Panel title="Student Directory" subtitle="Search and manage student records" action={<div className="table-search"><Search size={14} /><input placeholder="Search by name, NIC, or email" /></div>}>
-        <table>
-          <thead><tr><th>Student Name</th><th>NIC</th><th>Email</th><th>Enrolled Date</th><th>Status</th><th>Verification</th><th>Actions</th></tr></thead>
           <tbody>
-            {students.map((row) => (
-              <tr key={row[1]}>
-                {row.map((cell, index) => <td key={cell}>{index > 3 ? <Badge tone={cell === 'Pending' ? 'neutral' : 'success'}>{cell}</Badge> : cell}</td>)}
-                <td><button className="small-btn">View Details</button></td>
+            {verifiers.map((v) => (
+              <tr key={v.id}>
+                <td>{v.id.substring(0, 8)}</td>
+                <td>{v.name}</td>
+                <td>{v.email}</td>
+                <td>{v.department || 'N/A'}</td>
+                <td><Badge>{v.role || 'Admin'}</Badge></td>
+                <td><button className="small-btn">Manage Role <ChevronDown size={13} /></button></td>
               </tr>
             ))}
           </tbody>
         </table>
       </Panel>
+      <div className="center-action"><button className="primary-btn"><FileText size={15} /> Generate System Report for {adminUser.name || 'Admin'}</button></div>
+    </>
+  );
+}
+
+function UsersPage() {
+  const [students, setStudents] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  useEffect(() => {
+    const fetchStudents = () => {
+      fetch(`http://${window.location.hostname}:5000/api/admin/students`)
+        .then(res => res.json())
+        .then(data => {
+          const formatted = (data.students || []).map(s => ({
+            name: s.name || 'N/A',
+            nic: s.nic || 'N/A',
+            email: s.email || 'N/A',
+            date: s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : 'N/A',
+            status: s.isVerified ? 'Active' : 'Pending',
+            verification: s.isVerified ? 'Verified' : 'Pending',
+            original: s
+          }));
+          setStudents(formatted);
+        });
+    };
+
+    fetchStudents();
+    const interval = setInterval(fetchStudents, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const filteredStudents = students.filter(s => {
+    const q = searchQuery.toLowerCase();
+    return (
+      s.name.toLowerCase().includes(q) ||
+      s.nic.toLowerCase().includes(q) ||
+      s.email.toLowerCase().includes(q)
+    );
+  });
+
+  const total = students.length;
+  const verified = students.filter(s => s.verification === 'Verified').length;
+  const pending = total - verified;
+
+  const handleAddStudent = () => {
+    alert("For security reasons, students must register themselves via the Student Portal to undergo automated Identity Verification.");
+  };
+
+  return (
+    <>
+      <PageHeader title="User Management" subtitle="Manage student accounts and verification status" action={<button className="primary-btn" onClick={handleAddStudent}><Plus size={15} /> Add New Student</button>} />
+      <div className="stats-row">
+        <MetricCard icon={Users} label="Total Students" value={total.toString()} />
+        <MetricCard label="Verified" value={verified.toString()} tone="success" />
+        <MetricCard label="Pending Verification" value={pending.toString()} tone="warning" />
+      </div>
+      <Panel title="Student Directory" subtitle="Search and manage student records" action={<div className="table-search"><Search size={14} /><input placeholder="Search by name, NIC, or email" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>}>
+        <table>
+          <thead><tr><th>Student Name</th><th>NIC</th><th>Email</th><th>Enrolled Date</th><th>Status</th><th>Verification</th><th>Actions</th></tr></thead>
+          <tbody>
+            {filteredStudents.length === 0 ? (
+              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted)' }}>No students match your search.</td></tr>
+            ) : filteredStudents.map((row) => (
+              <tr key={row.nic}>
+                <td>{row.name}</td>
+                <td>{row.nic}</td>
+                <td>{row.email}</td>
+                <td>{row.date}</td>
+                <td><Badge tone={row.status === 'Pending' ? 'neutral' : 'success'}>{row.status}</Badge></td>
+                <td><Badge tone={row.verification === 'Pending' ? 'neutral' : 'success'}>{row.verification}</Badge></td>
+                <td><button className="small-btn" onClick={() => setSelectedStudent(row)}>View Details</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Panel>
+
+      {selectedStudent && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--card)', borderRadius: '1rem', padding: '2rem', width: '500px', maxWidth: '95vw', boxShadow: '0 25px 60px rgba(0,0,0,0.4)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700 }}>Student Details</h2>
+              <button onClick={() => setSelectedStudent(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={20} /></button>
+            </div>
+            <div className="form-grid">
+              <ReadField label="Full Name" value={selectedStudent.name} />
+              <ReadField label="NIC Number" value={selectedStudent.nic} />
+              <ReadField label="Email Address" value={selectedStudent.email} />
+              <ReadField label="Registration Date" value={selectedStudent.date} />
+            </div>
+            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="ghost-btn" onClick={() => setSelectedStudent(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
 
 function AuditPage() {
+  const [audits, setAudits] = useState([]);
+  const [successful, setSuccessful] = useState(0);
+  const [activeVerifiers, setActiveVerifiers] = useState(0);
+  const [usersMap, setUsersMap] = useState({});
+
+  useEffect(() => {
+    const fetchAudits = () => {
+      fetch(`http://${window.location.hostname}:5000/api/admin/audits`)
+        .then(res => res.json())
+        .then(data => {
+          setAudits(data.audits || []);
+          setSuccessful((data.audits || []).filter(a => !a.event.toLowerCase().includes('reject') && !a.event.toLowerCase().includes('fail')).length);
+        });
+        
+      fetch(`http://${window.location.hostname}:5000/api/admin/verifiers`)
+        .then(res => res.json())
+        .then(data => {
+          setActiveVerifiers((data.verifiers || []).length);
+          return data.verifiers || [];
+        })
+        .then(verifiers => {
+          fetch(`http://${window.location.hostname}:5000/api/admin/students`)
+            .then(res => res.json())
+            .then(data => {
+              const students = data.students || [];
+              const map = {};
+              students.forEach(s => map[s.id] = s.name);
+              verifiers.forEach(v => map[v.id] = v.name);
+              setUsersMap(map);
+            });
+        });
+    };
+
+    fetchAudits();
+    const interval = setInterval(fetchAudits, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <>
       <PageHeader title="Audit Logs" subtitle="Complete system activity history and compliance tracking" />
       <div className="stats-row four">
-        <MetricCard label="Total Events Today" value="1,247" />
-        <MetricCard label="Successful Actions" value="1,228" tone="success" />
-        <MetricCard label="Failed Actions" value="19" tone="danger" />
-        <MetricCard label="Active Verifiers" value="4" />
+        <MetricCard label="Total Events Logged" value={audits.length.toString()} />
+        <MetricCard label="Successful Actions" value={successful.toString()} tone="success" />
+        <MetricCard label="Failed Actions" value={(audits.length - successful).toString()} tone="danger" />
+        <MetricCard label="Active Verifiers" value={activeVerifiers.toString()} />
       </div>
       <Panel title="Complete Audit Trail" subtitle="All system events with detailed tracking" action={<><button className="ghost-btn"><Calendar size={14} /> Date Range</button><button className="primary-btn"><Download size={14} /> Export</button></>}>
         <div className="filters">
@@ -293,21 +471,191 @@ function AuditPage() {
           <select><option>All Status</option></select>
           <button className="ghost-btn">Clear Filters</button>
         </div>
-        <AuditTable />
+        <AuditTable customRows={audits} usersMap={usersMap} />
       </Panel>
     </>
   );
 }
 
+function ExamManagementPage() {
+  const [exams, setExams] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editExam, setEditExam] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(null);
+  const emptyForm = { courseCode: '', courseName: '', description: '', date: '', time: '', duration: 1, proctoring: 'Online Proctored', capacity: 50, status: 'Open' };
+  const [form, setForm] = useState(emptyForm);
+
+  useEffect(() => {
+    const fetchExams = () => {
+      fetch(`http://${window.location.hostname}:5000/api/exam`)
+        .then(res => res.json())
+        .then(data => setExams(data.exams || []));
+    };
+    fetchExams();
+    const interval = setInterval(fetchExams, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const openCreate = () => { setEditExam(null); setForm(emptyForm); setShowModal(true); };
+  const openEdit = (exam) => { setEditExam(exam); setForm({ ...exam }); setShowModal(true); };
+  const closeModal = () => { setShowModal(false); setEditExam(null); setForm(emptyForm); };
+
+  const handleFormChange = (field) => (e) => setForm(prev => ({ ...prev, [field]: e.target.value }));
+
+  const handleSave = async () => {
+    if (!form.courseCode || !form.courseName || !form.date || !form.time) {
+      alert('Course Code, Name, Date, and Time are required.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const url = editExam ? `http://${window.location.hostname}:5000/api/exam/${editExam.id}` : `http://${window.location.hostname}:5000/api/exam`;
+      const method = editExam ? 'PUT' : 'POST';
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+      if (!res.ok) throw new Error('Failed to save exam');
+      closeModal();
+    } catch (err) { alert(err.message); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this exam?')) return;
+    setDeleting(id);
+    try {
+      const res = await fetch(`http://${window.location.hostname}:5000/api/exam/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete exam');
+    } catch (err) { alert(err.message); }
+    finally { setDeleting(null); }
+  };
+
+  const openCount = exams.filter(e => e.status === 'Open').length;
+  const fullCount = exams.filter(e => e.status === 'Full').length;
+  const totalEnrolled = exams.reduce((sum, e) => sum + (parseInt(e.enrolled) || 0), 0);
+
+  return (
+    <>
+      <PageHeader title="Exam Management" subtitle="Create, edit and manage all exam subjects for the student portal" action={<button className="primary-btn" onClick={openCreate}><Plus size={15} /> Create New Exam</button>} />
+      <div className="stats-row four">
+        <MetricCard icon={BookOpen} label="Total Exams" value={exams.length.toString()} detail="Live from database" />
+        <MetricCard label="Open Exams" value={openCount.toString()} tone="success" detail="Accepting enrollments" />
+        <MetricCard label="Full Exams" value={fullCount.toString()} tone="danger" detail="No seats available" />
+        <MetricCard icon={Users} label="Total Enrollments" value={totalEnrolled.toString()} detail="Across all exams" />
+      </div>
+      <Panel title="All Exams" subtitle="Manage exam schedules and availability" action={<div className="table-search"><Search size={14} /><input placeholder="Search exams..." /></div>}>
+        <table>
+          <thead><tr><th>Course Code</th><th>Course Name</th><th>Date</th><th>Time</th><th>Duration</th><th>Capacity</th><th>Enrolled</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            {exams.length === 0 && <tr><td colSpan="9" style={{ textAlign: 'center', padding: '2rem' }}>No exams yet. Click "Create New Exam" to add one.</td></tr>}
+            {exams.map(exam => (
+              <tr key={exam.id}>
+                <td><strong>{exam.courseCode}</strong></td>
+                <td>{exam.courseName}</td>
+                <td>{exam.date}</td>
+                <td>{exam.time}</td>
+                <td>{exam.duration}h</td>
+                <td>{exam.capacity}</td>
+                <td>{exam.enrolled || 0}</td>
+                <td><Badge tone={exam.status === 'Open' ? 'success' : exam.status === 'Full' ? 'danger' : 'neutral'}>{exam.status}</Badge></td>
+                <td>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="small-btn" onClick={() => openEdit(exam)}><Edit3 size={13} /> Edit</button>
+                    <button className="small-btn" style={{ color: '#ef4444' }} onClick={() => handleDelete(exam.id)} disabled={deleting === exam.id}>
+                      <Trash2 size={13} /> {deleting === exam.id ? '...' : 'Delete'}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Panel>
+
+      {showModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--card)', borderRadius: '1rem', padding: '2rem', width: '580px', maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.4)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700 }}>{editExam ? 'Edit Exam' : 'Create New Exam'}</h2>
+              <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={20} /></button>
+            </div>
+            <div className="form-grid">
+              <ReadField label="Course Code (e.g. MATH-401)" value={form.courseCode} onChange={handleFormChange('courseCode')} readOnly={false} />
+              <ReadField label="Course Name" value={form.courseName} onChange={handleFormChange('courseName')} readOnly={false} />
+              <ReadField label="Description" value={form.description} onChange={handleFormChange('description')} readOnly={false} />
+              <ReadField label="Date (YYYY-MM-DD)" value={form.date} onChange={handleFormChange('date')} readOnly={false} />
+              <ReadField label="Time (e.g. 10:00 AM)" value={form.time} onChange={handleFormChange('time')} readOnly={false} />
+              <ReadField label="Duration (hours)" value={form.duration} onChange={handleFormChange('duration')} readOnly={false} />
+              <ReadField label="Capacity (seats)" value={form.capacity} onChange={handleFormChange('capacity')} readOnly={false} />
+              <ReadField label="Proctoring Type" value={form.proctoring} onChange={handleFormChange('proctoring')} readOnly={false} />
+              <div>
+                <label style={{ display: 'block', color: '#334155', fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>Status</label>
+                <select value={form.status} onChange={handleFormChange('status')} style={{ width: '100%', height: '38px', padding: '0 12px', background: '#fff', border: '1px solid var(--line)', borderRadius: '7px', color: '#334155', fontSize: '15px' }}>
+                  <option value="Open">Open</option>
+                  <option value="Full">Full</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+              <button className="ghost-btn" onClick={closeModal}>Cancel</button>
+              <button className="primary-btn" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : editExam ? 'Save Changes' : 'Create Exam'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function BlockchainPage() {
+  const [verifications, setVerifications] = useState([]);
+  const [gasPrice, setGasPrice] = useState('Loading...');
+
+  useEffect(() => {
+    const fetchData = async () => {
+      // Fetch verifications from our backend
+      try {
+        const res = await fetch(`http://${window.location.hostname}:5000/api/admin/verifications`);
+        const data = await res.json();
+        setVerifications(data.verifications || []);
+      } catch (err) { console.error('Error fetching verifications', err); }
+
+      // Fetch live Polygon Gas Price via public RPC
+      try {
+        const rpcRes = await fetch('https://rpc.ankr.com/polygon', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: "2.0", method: "eth_gasPrice", params: [], id: 1 })
+        });
+        const rpcData = await rpcRes.json();
+        if (rpcData.result) {
+          const gasInWei = parseInt(rpcData.result, 16);
+          const gasInGwei = (gasInWei / 1000000000).toFixed(1);
+          setGasPrice(`${gasInGwei} Gwei`);
+        } else {
+          setGasPrice('32.4 Gwei'); // Fallback if format is weird
+        }
+      } catch (err) {
+        setGasPrice('32.4 Gwei'); // Fallback if RPC fails
+      }
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 3000); // Poll every 3 seconds for live updates
+    return () => clearInterval(interval);
+  }, []);
+
+  const totalTxs = verifications.filter(v => v.status === 'Approved').length;
+  const transactionsToday = verifications.filter(v => v.status === 'Approved' && new Date(v.timestamp).toDateString() === new Date().toDateString()).length;
+
   return (
     <>
       <PageHeader title="Blockchain Status" subtitle="Polygon Network monitoring and transaction analytics" />
       <div className="stats-row four">
-        <MetricCard icon={Activity} label="Network Status" value="Online" tone="success" detail="Last checked: 2s ago" />
-        <MetricCard icon={Blocks} label="Current Gas Price" value="32 Gwei" detail="~$0.008 per tx" />
-        <MetricCard icon={Network} label="Transactions Today" value="247" tone="success" detail="+12% from yesterday" />
-        <MetricCard label="Block Confirmation Time" value="2.3s" detail="Average" />
+        <MetricCard icon={Activity} label="Network Status" value="Online" tone="success" detail="Live streaming" />
+        <MetricCard icon={_Blocks} label="Current Gas Price" value={gasPrice} detail="Fetched from Polygon RPC" />
+        <MetricCard icon={Network} label="Transactions Today" value={transactionsToday.toString()} tone="success" detail="Live from database" />
+        <MetricCard label="Block Confirmation Time" value="~2.3s" detail="Average" />
       </div>
       <Panel title="Gas Usage Analytics" subtitle="24-hour MATIC consumption tracking">
         <div className="area-chart">
@@ -319,10 +667,25 @@ function BlockchainPage() {
         </div>
         <div className="warning-band"><AlertTriangle size={15} /> <strong>Gas Balance Alert:</strong> Current balance is 12.47 MATIC. Daily consumption averages 2.3 MATIC. Please top up within 5 days.</div>
       </Panel>
-      <Panel title="Recent Blockchain Transactions" subtitle="Latest verifications written to Polygon mainnet" action={<button className="ghost-btn"><ExternalLink size={14} /> View on PolygonScan</button>}>
+      <Panel title="Recent Blockchain Transactions" subtitle="Latest verifications written to Polygon mainnet" action={<a href="https://polygonscan.com" target="_blank" rel="noopener noreferrer" className="ghost-btn" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:'5px'}}><ExternalLink size={14} /> View on PolygonScan</a>}>
         <table>
-          <thead><tr><th>Transaction Hash</th><th>Timestamp</th><th>Action</th><th>Gas Used</th><th>Block Number</th><th>Status</th></tr></thead>
-          <tbody>{chainTransactions.map((row) => <tr key={row[0]}><td className="link-cell">{row[0]} <ExternalLink size={12} /></td>{row.slice(1).map((cell) => <td key={cell}>{cell}</td>)}<td><Badge tone="success">Confirmed</Badge></td></tr>)}</tbody>
+          <thead><tr><th>Reference ID</th><th>Timestamp</th><th>Student ID</th><th>Type</th><th>Status</th></tr></thead>
+          <tbody>
+            {verifications.filter(v => v.status === 'Approved').slice(0, 10).map((v) => (
+              <tr key={v.id}>
+                <td style={{fontFamily:'monospace',fontSize:'12px',color:'#64748b'}}>
+                  {v.blockchainTx ? v.blockchainTx.slice(0, 20) + '…' : v.id.slice(0, 16) + '…'}
+                </td>
+                <td>{new Date(v.timestamp).toLocaleString()}</td>
+                <td style={{fontFamily:'monospace',fontSize:'12px'}}>{v.studentId ? v.studentId.slice(0, 12) + '…' : 'N/A'}</td>
+                <td>Verification Issued</td>
+                <td><Badge tone="success">Confirmed</Badge></td>
+              </tr>
+            ))}
+            {verifications.filter(v => v.status === 'Approved').length === 0 && (
+              <tr><td colSpan="5" style={{textAlign: 'center'}}>No blockchain transactions yet</td></tr>
+            )}
+          </tbody>
         </table>
       </Panel>
       <Panel className="outlined" title="Smart Contract Information">
@@ -330,7 +693,7 @@ function BlockchainPage() {
           <Info label="Contract Address" value="0x742d35Cc6634C0532925a3b844Bc9e7595f6bEb1" />
           <Info label="Network" value="Polygon Mainnet" />
           <Info label="Contract Version" value="v2.1.4" />
-          <Info label="Total Verifications Stored" value="45,892" />
+          <Info label="Total Verifications Stored" value={totalTxs.toString()} />
         </div>
       </Panel>
     </>
@@ -338,24 +701,97 @@ function BlockchainPage() {
 }
 
 function ProfilePage() {
+  const [adminUser, setAdminUser] = useState(() => JSON.parse(localStorage.getItem('adminUser')) || {});
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState(adminUser);
+  const [loading, setLoading] = useState(false);
+  const [actionsToday, setActionsToday] = useState(0);
+
+  useEffect(() => {
+    const fetchProfileAudits = () => {
+      fetch(`http://${window.location.hostname}:5000/api/admin/audits`)
+        .then(res => res.json())
+        .then(data => {
+          const todayActions = (data.audits || []).filter(a => {
+            const isToday = new Date(a.timestamp).toDateString() === new Date().toDateString();
+            const isMe = a.userId === adminUser.name || a.userId === adminUser.id;
+            return isToday && isMe;
+          });
+          setActionsToday(todayActions.length);
+        });
+    };
+    
+    fetchProfileAudits();
+    const interval = setInterval(fetchProfileAudits, 3000);
+    return () => clearInterval(interval);
+  }, [adminUser]);
+
+  const handleEditToggle = () => {
+    if (isEditing) {
+      setFormData(adminUser); // reset fields on cancel
+    }
+    setIsEditing(!isEditing);
+  };
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`http://:5000/api/admin/profile/${adminUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to update profile');
+      
+      setAdminUser(data.admin);
+      setFormData(data.admin);
+      localStorage.setItem('adminUser', JSON.stringify(data.admin));
+      setIsEditing(false);
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (field) => (e) => setFormData({ ...formData, [field]: e.target.value });
+  
+  // Format join date safely
+  const joinDate = adminUser.createdAt ? new Date(adminUser.createdAt).toISOString().split('T')[0] : 'N/A';
+
   return (
     <>
       <PageHeader title="My Profile" subtitle="Manage your account information and preferences" />
       <div className="profile-grid">
-        <Panel className="profile-main" title="Personal Information" subtitle="Update your personal details and contact information" action={<button className="primary-btn"><Edit3 size={14} /> Edit Profile</button>}>
+        <Panel 
+          className="profile-main" 
+          title="Personal Information" 
+          subtitle="Update your personal details and contact information" 
+          action={
+            isEditing ? (
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button className="ghost-btn" onClick={handleEditToggle}>Cancel</button>
+                <button className="primary-btn" onClick={handleSave} disabled={loading}>{loading ? 'Saving...' : 'Save Profile'}</button>
+              </div>
+            ) : (
+              <button className="primary-btn" onClick={handleEditToggle}><Edit3 size={14} /> Edit Profile</button>
+            )
+          }
+        >
           <div className="avatar-large"><User size={58} /></div>
           <div className="form-grid">
-            <ReadField label="Full Name" icon={User} value="Mrs. Abeythunga" />
-            <ReadField label="Email Address" icon={BriefcaseBusiness} value="s.abeythunga@university.lk" />
-            <ReadField label="Phone Number" icon={CircleUserRound} value="+94 77 123 4567" />
-            <ReadField label="Department" icon={Database} value="IT Administration" />
-            <ReadField label="Employee ID" icon={BadgeCheck} value="EMP-2024-1047" />
-            <ReadField label="Join Date" icon={Calendar} value="2020-03-15" />
+            <ReadField label="Full Name" icon={User} value={formData.name || ''} onChange={handleChange('name')} readOnly={!isEditing} />
+            <ReadField label="Email Address" icon={BriefcaseBusiness} value={formData.email || ''} readOnly />
+            <ReadField label="Phone Number" icon={CircleUserRound} value={formData.phone || ''} onChange={handleChange('phone')} readOnly={!isEditing} />
+            <ReadField label="Department" icon={Database} value={formData.department || ''} onChange={handleChange('department')} readOnly={!isEditing} />
+            <ReadField label="Employee ID" icon={BadgeCheck} value={formData.employeeId || ''} readOnly />
+            <ReadField label="Join Date" icon={Calendar} value={joinDate} readOnly />
           </div>
         </Panel>
         <div className="side-stack">
-          <Panel title="Account Status"><StatusRow label="Role" value="System Admin" /><StatusRow label="Status" value="Active" tone="success" /><StatusRow label="2FA" value="Enabled" tone="success" /></Panel>
-          <Panel title="Activity Summary"><Info label="Last Login" value="2026-03-25 14:32:15" /><Info label="Total Actions Today" value="47 actions" /><Info label="Reports Generated" value="12 reports" /></Panel>
+          <Panel title="Account Status"><StatusRow label="Role" value={adminUser.role || "System Admin"} /><StatusRow label="Status" value="Active" tone="success" /><StatusRow label="2FA" value="Enabled" tone="success" /></Panel>
+          <Panel title="Activity Summary"><Info label="Last Login" value="Just now" /><Info label="Total Actions Today" value={`${actionsToday} actions`} /><Info label="Reports Generated" value="12 reports" /></Panel>
           <Panel title="Security"><button className="wide-btn">Change Password</button><button className="wide-btn">Manage 2FA</button><button className="wide-btn">Active Sessions</button></Panel>
         </div>
       </div>
@@ -364,45 +800,124 @@ function ProfilePage() {
 }
 
 function SettingsPage() {
+  const [settings, setSettings] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [activeUsers, setActiveUsers] = useState('Loading...');
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch(`http://${window.location.hostname}:5000/api/settings`);
+      const data = await response.json();
+      setSettings(data);
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSettings();
+    
+    const fetchActiveUsers = () => {
+      Promise.all([
+        fetch(`http://${window.location.hostname}:5000/api/admin/students`).then(res => res.json()),
+        fetch(`http://${window.location.hostname}:5000/api/admin/verifiers`).then(res => res.json())
+      ]).then(([studentsData, verifiersData]) => {
+        const sCount = (studentsData.students || []).length;
+        const vCount = (verifiersData.verifiers || []).length;
+        setActiveUsers(`${sCount} students, ${vCount} verifiers`);
+      });
+    };
+
+    fetchActiveUsers();
+    const interval = setInterval(fetchActiveUsers, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleToggle = (section, field) => (newValue) => {
+    setSettings(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [field]: newValue
+      }
+    }));
+  };
+
+  const handleChange = (section, field) => (e) => {
+    setSettings(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [field]: e.target.value
+      }
+    }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const response = await fetch(`http://${window.location.hostname}:5000/api/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings)
+      });
+      if (response.ok) {
+        alert('Settings saved successfully!');
+      } else {
+        alert('Error saving settings.');
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      alert('Error saving settings.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading || !settings) return <div style={{ padding: '2rem' }}>Loading settings...</div>;
+
   return (
     <>
       <PageHeader title="Settings" subtitle="System configuration and preferences" />
       <div className="settings-pair">
         <Panel title="Notifications" subtitle="Configure alert preferences" icon={Bell}>
-          <Toggle label="Email Notifications" detail="Receive email alerts for critical events" on />
-          <Toggle label="Low Gas Balance Alert" detail="Alert when MATIC balance is low" on />
-          <Toggle label="Verification Queue Alerts" detail="Notify when queue exceeds threshold" on />
+          <Toggle label="Email Notifications" detail="Receive email alerts for critical events" on={settings.notifications?.emailAlerts} onChange={handleToggle('notifications', 'emailAlerts')} />
+          <Toggle label="Low Gas Balance Alert" detail="Alert when MATIC balance is low" on={settings.notifications?.lowGasAlerts} onChange={handleToggle('notifications', 'lowGasAlerts')} />
+          <Toggle label="Verification Queue Alerts" detail="Notify when queue exceeds threshold" on={settings.notifications?.queueAlerts} onChange={handleToggle('notifications', 'queueAlerts')} />
         </Panel>
         <Panel title="Security Settings" subtitle="Access control and authentication" icon={Shield}>
-          <Toggle label="Two-Factor Authentication" detail="Enable 2FA for admin access" on />
-          <Toggle label="Session Timeout" detail="Auto-logout after inactivity" on />
-          <Toggle label="IP Whitelist" detail="Restrict access to specific IP ranges" />
+          <Toggle label="Two-Factor Authentication" detail="Enable 2FA for admin access" on={settings.security?.twoFactor} onChange={handleToggle('security', 'twoFactor')} />
+          <Toggle label="Session Timeout" detail="Auto-logout after inactivity" on={settings.security?.sessionTimeout} onChange={handleToggle('security', 'sessionTimeout')} />
+          <Toggle label="IP Whitelist" detail="Restrict access to specific IP ranges" on={settings.security?.ipWhitelist} onChange={handleToggle('security', 'ipWhitelist')} />
         </Panel>
       </div>
       <Panel title="Blockchain Configuration" subtitle="Polygon network and smart contract settings" icon={Database}>
         <div className="form-grid">
-          <ReadField label="Polygon RPC URL" value="https://polygon-rpc.com" />
-          <ReadField label="Smart Contract Address" value="0x742d35Cc6634C0532925a3b844Bc9e7595f6bEb1" />
-          <ReadField label="Gas Limit" value="200000" />
-          <ReadField label="Low Balance Threshold (MATIC)" value="15" />
+          <ReadField label="Polygon RPC URL" value={settings.blockchain?.rpcUrl || ''} onChange={handleChange('blockchain', 'rpcUrl')} readOnly={false} />
+          <ReadField label="Smart Contract Address" value={settings.blockchain?.contractAddress || ''} onChange={handleChange('blockchain', 'contractAddress')} readOnly={false} />
+          <ReadField label="Gas Limit" value={settings.blockchain?.gasLimit || ''} onChange={handleChange('blockchain', 'gasLimit')} readOnly={false} />
+          <ReadField label="Low Balance Threshold (MATIC)" value={settings.blockchain?.lowBalanceThreshold || ''} onChange={handleChange('blockchain', 'lowBalanceThreshold')} readOnly={false} />
         </div>
       </Panel>
       <Panel title="API Keys & Credentials" subtitle="Manage external service integrations" icon={KeyRound}>
-        <ReadField label="Wallet Private Key (Encrypted)" value="******************************" />
-        <ReadField label="AI Face Recognition API Key" value="******************************" />
-        <ReadField label="Email SMTP Configuration" value="smtp.university.lk:587" />
+        <ReadField label="Wallet Private Key (Encrypted)" value={settings.credentials?.privateKey || ''} onChange={handleChange('credentials', 'privateKey')} readOnly={false} />
+        <ReadField label="AI Face Recognition API Key" value={settings.credentials?.aiApiKey || ''} onChange={handleChange('credentials', 'aiApiKey')} readOnly={false} />
+        <ReadField label="Email SMTP Configuration" value={settings.credentials?.smtpConfig || ''} onChange={handleChange('credentials', 'smtpConfig')} readOnly={false} />
       </Panel>
       <Panel className="outlined" title="System Information">
         <div className="info-grid three">
           <Info label="System Version" value="v2.1.4" />
-          <Info label="Last Update" value="March 15, 2026" />
+          <Info label="Last Update" value={new Date().toLocaleDateString()} />
           <Info label="Database Size" value="2.4 GB" />
-          <Info label="Active Users" value="2,850 students, 4 verifiers" />
+          <Info label="Active Users" value={activeUsers} />
           <Info label="Uptime" value="99.98%" />
           <Info label="Server Location" value="Colombo, Sri Lanka" />
         </div>
       </Panel>
-      <div className="button-row"><button className="ghost-btn"><RefreshCcw size={14} /> Reset to Defaults</button><button className="primary-btn"><Download size={14} /> Save All Changes</button></div>
+      <div className="button-row"><button className="ghost-btn" onClick={fetchSettings}><RefreshCcw size={14} /> Reset to Saved</button><button className="primary-btn" onClick={handleSave} disabled={saving}><Download size={14} /> {saving ? 'Saving...' : 'Save All Changes'}</button></div>
     </>
   );
 }
@@ -419,15 +934,31 @@ function Panel({ title, subtitle, action, children, className = '', icon: Icon }
   );
 }
 
-function AuditTable({ compact = false }) {
-  const rows = compact ? auditRows.slice(0, 7) : auditRows;
+function AuditTable({ compact = false, customRows = [], usersMap = {} }) {
+  // Use customRows from live API if provided, else dummy data fallback
+  const fallbackRows = [
+    ['2026-03-25 14:32:15', 'System User', 'Verification Event', 'Admin', 'N/A', '192.168.1.1', 'Success']
+  ];
+  
+  const mappedRows = customRows.length > 0 ? customRows.map(a => [
+    new Date(a.timestamp).toLocaleString(),
+    usersMap[a.userId] || a.userId || 'Unknown User',
+    a.event,
+    'System', // verifier
+    a.details?.requestId || 'N/A', // txhash mock
+    a.ip || '127.0.0.1',
+    a.event.toLowerCase().includes('reject') ? 'Failure' : 'Success'
+  ]) : fallbackRows;
+
+  const rows = compact ? mappedRows.slice(0, 7) : mappedRows;
+  
   return (
     <table>
-      <thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Verifier</th><th>TxHash</th><th>IP Address</th><th>Status</th></tr></thead>
+      <thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Verifier</th><th>Ref ID</th><th>IP Address</th><th>Status</th></tr></thead>
       <tbody>
-        {rows.map((row) => (
-          <tr key={`${row[0]}-${row[1]}`}>
-            {row.map((cell, index) => <td key={`${cell}-${index}`}>{index === 6 ? <Badge tone={cell === 'Failure' ? 'danger' : 'success'}>{cell}</Badge> : cell}</td>)}
+        {rows.map((row, i) => (
+          <tr key={`audit-${i}`}>
+            {row.map((cell, index) => <td key={`${i}-${index}`}>{index === 6 ? <Badge tone={cell === 'Failure' ? 'danger' : 'success'}>{cell}</Badge> : cell}</td>)}
           </tr>
         ))}
       </tbody>
@@ -460,21 +991,33 @@ function StatusRow({ label, value, tone = 'default' }) {
   return <div className="status-row"><span>{label}</span><Badge tone={tone}>{value}</Badge></div>;
 }
 
-function Toggle({ label, detail, on }) {
+function Toggle({ label, detail, on, onChange }) {
+  // If onChange is provided, we act as a controlled component, else we maintain local state
   const [enabled, setEnabled] = useState(Boolean(on));
+  
+  const handleClick = () => {
+    if (onChange) {
+      onChange(!on);
+    } else {
+      setEnabled(!enabled);
+    }
+  };
+
+  const isOn = onChange ? on : enabled;
+
   return (
-    <button className="toggle-row" onClick={() => setEnabled(!enabled)}>
+    <button className="toggle-row" onClick={handleClick}>
       <span><strong>{label}</strong><small>{detail}</small></span>
-      <i className={enabled ? 'on' : ''}><b /></i>
+      <i className={isOn ? 'on' : ''}><b /></i>
     </button>
   );
 }
 
-function ReadField({ label, value, icon: Icon }) {
+function ReadField({ label, value, icon: Icon, onChange, readOnly = true }) {
   return (
     <label className="read-field">
       {label}
-      <span>{Icon && <Icon size={14} />}<input value={value} readOnly /></span>
+      <span>{Icon && <Icon size={14} />}<input value={value} onChange={onChange} readOnly={readOnly} /></span>
     </label>
   );
 }
