@@ -232,12 +232,96 @@ function MetricCard({ icon: Icon, label, value, tone, detail, children }) {
   );
 }
 
+// ─── Shared PDF export helper ───────────────────────────────────────────────
+function exportAuditPDF(rows, usersMap, title = 'Audit Log Report') {
+  const now = new Date();
+  const dateStr = now.toLocaleString();
+
+  const tableRows = rows.map(a => {
+    const user = usersMap[a.userId] || a.userId || 'Unknown';
+    const event = a.event || 'N/A';
+    const refId = a.details?.requestId || 'N/A';
+    const ip = a.ip || '127.0.0.1';
+    const isFail = event.toLowerCase().includes('reject') || event.toLowerCase().includes('fail');
+    const status = isFail ? 'Failure' : 'Success';
+    const statusColor = isFail ? '#dc2626' : '#16a34a';
+    const ts = new Date(a.timestamp).toLocaleString();
+    return `<tr>
+      <td>${ts}</td>
+      <td>${user}</td>
+      <td>${event}</td>
+      <td style="font-family:monospace;font-size:11px">${refId}</td>
+      <td>${ip}</td>
+      <td><span style="color:${statusColor};font-weight:600">${status}</span></td>
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${title}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; padding: 32px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; border-bottom: 2px solid #0f2d55; padding-bottom: 16px; }
+    .header h1 { font-size: 20px; font-weight: 700; color: #0f2d55; }
+    .header p { font-size: 12px; color: #64748b; margin-top: 4px; }
+    .meta { text-align: right; font-size: 12px; color: #64748b; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead tr { background: #0f2d55; color: #fff; }
+    thead th { padding: 8px 10px; text-align: left; font-weight: 600; }
+    tbody tr:nth-child(even) { background: #f8fafc; }
+    tbody tr:hover { background: #e2e8f0; }
+    tbody td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; }
+    .footer { margin-top: 20px; font-size: 11px; color: #94a3b8; text-align: center; }
+    @media print {
+      body { padding: 16px; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>University Blockchain Identity System</h1>
+      <p>${title}</p>
+    </div>
+    <div class="meta">
+      <strong>Generated:</strong> ${dateStr}<br/>
+      <strong>Total Records:</strong> ${rows.length}
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Timestamp</th><th>User</th><th>Action</th><th>Ref ID</th><th>IP Address</th><th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:#94a3b8">No records found</td></tr>'}
+    </tbody>
+  </table>
+  <div class="footer">University Blockchain Identity &amp; Verification System &mdash; Admin Dashboard &mdash; Confidential</div>
+  <script>window.onload = () => { window.print(); };<\/script>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+  }
+}
+
+
 function DashboardPage() {
   const adminUser = JSON.parse(localStorage.getItem('adminUser')) || {};
   const [users, setUsers] = useState([]);
   const [verifications, setVerifications] = useState([]);
   const [verifiers, setVerifiers] = useState([]);
   const [audits, setAudits] = useState([]);
+
 
   useEffect(() => {
     const fetchData = () => {
@@ -262,6 +346,11 @@ function DashboardPage() {
     return isToday && isSuccess;
   }).length;
   
+  const usersMap = {
+    ...Object.fromEntries(users.map(u => [u.id, u.name])),
+    ...Object.fromEntries(verifiers.map(v => [v.id, v.name]))
+  };
+
   return (
     <>
       <PageHeader title="Dashboard Overview" subtitle="System vitals and pending verification actions" />
@@ -286,14 +375,19 @@ function DashboardPage() {
         <MetricCard label="Completed Today" value={successfulActionsToday.toString()} />
       </div>
 
-      <Panel title="Audit Logs" subtitle="Group 14 Requirement: Detailed system activity tracking" action={<button className="ghost-btn"><Download size={14} /> Export Logs</button>}>
-        <AuditTable 
-          compact 
-          customRows={audits} 
-          usersMap={{
-            ...Object.fromEntries(users.map(u => [u.id, u.name])),
-            ...Object.fromEntries(verifiers.map(v => [v.id, v.name]))
-          }} 
+      <Panel
+        title="Audit Logs"
+        subtitle="Group 14 Requirement: Detailed system activity tracking"
+        action={
+          <button className="ghost-btn" onClick={() => exportAuditPDF(audits, usersMap)}>
+            <Download size={14} /> Export Logs
+          </button>
+        }
+      >
+        <AuditTable
+          compact
+          customRows={audits}
+          usersMap={usersMap}
         />
       </Panel>
 
@@ -324,20 +418,29 @@ function UsersPage() {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   
+  const [verifying, setVerifying] = useState(false);
+
   useEffect(() => {
     const fetchStudents = () => {
       fetch(`http://${window.location.hostname}:5000/api/admin/students`)
         .then(res => res.json())
         .then(data => {
-          const formatted = (data.students || []).map(s => ({
-            name: s.name || 'N/A',
-            nic: s.nic || 'N/A',
-            email: s.email || 'N/A',
-            date: s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : 'N/A',
-            status: s.isVerified ? 'Active' : 'Pending',
-            verification: s.isVerified ? 'Verified' : 'Pending',
-            original: s
-          }));
+            const formatted = (data.students || []).map(s => {
+              let verifStatus = s.verificationStatus;
+              if (!verifStatus) {
+                verifStatus = s.isVerified ? 'Verified' : 'Pending';
+              }
+              return {
+                id: s.id,
+                name: s.name || 'N/A',
+                nic: s.nic || 'N/A',
+                email: s.email || 'N/A',
+                date: s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : 'N/A',
+                status: s.isVerified ? 'Active' : 'Pending',
+                verification: verifStatus,
+                original: s
+              };
+            });
           setStudents(formatted);
         });
     };
@@ -364,6 +467,30 @@ function UsersPage() {
     alert("For security reasons, students must register themselves via the Student Portal to undergo automated Identity Verification.");
   };
 
+  const handleStatusChange = async (studentId, newStatus) => {
+    setVerifying(true);
+    try {
+      const isVerified = newStatus === 'Verified';
+      const res = await fetch(`http://${window.location.hostname}:5000/api/admin/students/${studentId}/verify`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verificationStatus: newStatus })
+      });
+      if (!res.ok) throw new Error('Failed to update verification status');
+      
+      // Update local state temporarily
+      setStudents(prev => prev.map(s => s.id === studentId ? { ...s, status: isVerified ? 'Active' : 'Pending', verification: newStatus } : s));
+      if (selectedStudent && selectedStudent.id === studentId) {
+        setSelectedStudent(prev => ({ ...prev, status: isVerified ? 'Active' : 'Pending', verification: newStatus }));
+      }
+      
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   return (
     <>
       <PageHeader title="User Management" subtitle="Manage student accounts and verification status" action={<button className="primary-btn" onClick={handleAddStudent}><Plus size={15} /> Add New Student</button>} />
@@ -385,7 +512,23 @@ function UsersPage() {
                 <td>{row.email}</td>
                 <td>{row.date}</td>
                 <td><Badge tone={row.status === 'Pending' ? 'neutral' : 'success'}>{row.status}</Badge></td>
-                <td><Badge tone={row.verification === 'Pending' ? 'neutral' : 'success'}>{row.verification}</Badge></td>
+                <td>
+                  <select 
+                    value={row.verification} 
+                    onChange={(e) => handleStatusChange(row.id, e.target.value)}
+                    disabled={verifying}
+                    style={{ 
+                      padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--border)', 
+                      background: row.verification === 'Verified' ? '#ecfdf5' : row.verification === 'Rejected' ? '#fef2f2' : '#f8fafc', 
+                      color: row.verification === 'Verified' ? '#16a34a' : row.verification === 'Rejected' ? '#dc2626' : '#64748b', 
+                      fontSize: '12px', fontWeight: 600, cursor: 'pointer', outline: 'none' 
+                    }}
+                  >
+                    <option value="Verified">Verified</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Rejected">Rejected</option>
+                  </select>
+                </td>
                 <td><button className="small-btn" onClick={() => setSelectedStudent(row)}>View Details</button></td>
               </tr>
             ))}
@@ -406,7 +549,23 @@ function UsersPage() {
               <ReadField label="Email Address" value={selectedStudent.email} />
               <ReadField label="Registration Date" value={selectedStudent.date} />
             </div>
-            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <select 
+                  value={selectedStudent.verification} 
+                  onChange={(e) => handleStatusChange(selectedStudent.id, e.target.value)}
+                  disabled={verifying}
+                  style={{ 
+                    padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border)', 
+                    background: 'var(--card)', color: 'var(--text)', fontSize: '13px', 
+                    fontWeight: 600, cursor: 'pointer', outline: 'none' 
+                  }}
+                >
+                  <option value="Verified">Set as Verified</option>
+                  <option value="Pending">Set as Pending</option>
+                  <option value="Rejected">Set as Rejected</option>
+                </select>
+              </div>
               <button className="ghost-btn" onClick={() => setSelectedStudent(null)}>Close</button>
             </div>
           </div>
@@ -422,6 +581,11 @@ function AuditPage() {
   const [activeVerifiers, setActiveVerifiers] = useState(0);
   const [usersMap, setUsersMap] = useState({});
 
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [actionFilter, setActionFilter] = useState('All Actions');
+  const [statusFilter, setStatusFilter] = useState('All Status');
+
   useEffect(() => {
     const fetchAudits = () => {
       fetch(`http://${window.location.hostname}:5000/api/admin/audits`)
@@ -430,7 +594,7 @@ function AuditPage() {
           setAudits(data.audits || []);
           setSuccessful((data.audits || []).filter(a => !a.event.toLowerCase().includes('reject') && !a.event.toLowerCase().includes('fail')).length);
         });
-        
+
       fetch(`http://${window.location.hostname}:5000/api/admin/verifiers`)
         .then(res => res.json())
         .then(data => {
@@ -455,6 +619,41 @@ function AuditPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Derive unique action types for the dropdown
+  const actionTypes = useMemo(() => {
+    const types = [...new Set(audits.map(a => a.event).filter(Boolean))];
+    return types;
+  }, [audits]);
+
+  // Apply all filters
+  const filteredAudits = useMemo(() => {
+    return audits.filter(a => {
+      const q = searchQuery.toLowerCase();
+      const userName = (usersMap[a.userId] || a.userId || '').toLowerCase();
+      const event = (a.event || '').toLowerCase();
+      const refId = (a.details?.requestId || '').toLowerCase();
+      const matchesSearch = !q || userName.includes(q) || event.includes(q) || refId.includes(q);
+
+      const matchesAction = actionFilter === 'All Actions' || a.event === actionFilter;
+
+      const isFail = a.event.toLowerCase().includes('reject') || a.event.toLowerCase().includes('fail');
+      const statusLabel = isFail ? 'Failure' : 'Success';
+      const matchesStatus = statusFilter === 'All Status' || statusLabel === statusFilter;
+
+      return matchesSearch && matchesAction && matchesStatus;
+    });
+  }, [audits, usersMap, searchQuery, actionFilter, statusFilter]);
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setActionFilter('All Actions');
+    setStatusFilter('All Status');
+  };
+
+  const handleExport = () => {
+    exportAuditPDF(filteredAudits, usersMap, 'Complete Audit Trail Report');
+  };
+
   return (
     <>
       <PageHeader title="Audit Logs" subtitle="Complete system activity history and compliance tracking" />
@@ -464,14 +663,42 @@ function AuditPage() {
         <MetricCard label="Failed Actions" value={(audits.length - successful).toString()} tone="danger" />
         <MetricCard label="Active Verifiers" value={activeVerifiers.toString()} />
       </div>
-      <Panel title="Complete Audit Trail" subtitle="All system events with detailed tracking" action={<><button className="ghost-btn"><Calendar size={14} /> Date Range</button><button className="primary-btn"><Download size={14} /> Export</button></>}>
+      <Panel
+        title="Complete Audit Trail"
+        subtitle={`All system events with detailed tracking ${filteredAudits.length !== audits.length ? `— showing ${filteredAudits.length} of ${audits.length}` : ''}`}
+        action={
+          <>
+            <button className="primary-btn" onClick={handleExport}><Download size={14} /> Export CSV</button>
+          </>
+        }
+      >
         <div className="filters">
-          <div className="table-search"><Search size={14} /><input placeholder="Search by NIC, TxHash, or Username" /></div>
-          <select><option>All Actions</option></select>
-          <select><option>All Status</option></select>
-          <button className="ghost-btn">Clear Filters</button>
+          <div className="table-search">
+            <Search size={14} />
+            <input
+              placeholder="Search by event, user, or ref ID"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <select value={actionFilter} onChange={e => setActionFilter(e.target.value)}>
+            <option>All Actions</option>
+            {actionTypes.map(t => <option key={t}>{t}</option>)}
+          </select>
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+            <option>All Status</option>
+            <option>Success</option>
+            <option>Failure</option>
+          </select>
+          <button
+            className="ghost-btn"
+            onClick={handleClearFilters}
+            disabled={!searchQuery && actionFilter === 'All Actions' && statusFilter === 'All Status'}
+          >
+            Clear Filters
+          </button>
         </div>
-        <AuditTable customRows={audits} usersMap={usersMap} />
+        <AuditTable customRows={filteredAudits} usersMap={usersMap} />
       </Panel>
     </>
   );
@@ -947,7 +1174,7 @@ function AuditTable({ compact = false, customRows = [], usersMap = {} }) {
     'System', // verifier
     a.details?.requestId || 'N/A', // txhash mock
     a.ip || '127.0.0.1',
-    a.event.toLowerCase().includes('reject') ? 'Failure' : 'Success'
+    a.event.toLowerCase().includes('reject') || a.event.toLowerCase().includes('fail') ? 'Failure' : 'Success'
   ]) : fallbackRows;
 
   const rows = compact ? mappedRows.slice(0, 7) : mappedRows;
