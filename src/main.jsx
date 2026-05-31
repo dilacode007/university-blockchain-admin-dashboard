@@ -43,6 +43,7 @@ import './styles.css';
 const navItems = [
   { id: 'dashboard', label: 'Dashboard Overview', icon: BarChart3 },
   { id: 'users', label: 'User Management', icon: Users },
+  { id: 'verifiers', label: 'Verifier Management', icon: UserRoundCog },
   { id: 'audit', label: 'Audit Logs', icon: ClipboardList },
   { id: 'exams', label: 'Exam Management', icon: BookOpen },
   { id: 'blockchain', label: 'Blockchain Status', icon: Database },
@@ -79,6 +80,7 @@ function App() {
         <main className="content">
           {page === 'dashboard' && <DashboardPage />}
           {page === 'users' && <UsersPage />}
+          {page === 'verifiers' && <VerifiersPage />}
           {page === 'audit' && <AuditPage />}
           {page === 'exams' && <ExamManagementPage />}
           {page === 'blockchain' && <BlockchainPage />}
@@ -238,7 +240,23 @@ function exportAuditPDF(rows, usersMap, title = 'Audit Log Report') {
   const dateStr = now.toLocaleString();
 
   const tableRows = rows.map(a => {
-    const user = usersMap[a.userId] || a.userId || 'Unknown';
+    const isVerifierAction = a.event?.includes('Verifier');
+    const isStudentActionWithVerifier = a.details?.verifierId;
+    
+    let userCol = 'Unknown User';
+    let verifierCol = 'System';
+    
+    if (isVerifierAction) {
+      userCol = usersMap[a.details?.studentId] || a.details?.studentId || 'Unknown User';
+      verifierCol = usersMap[a.userId] || a.userId || 'Unknown Verifier';
+    } else if (isStudentActionWithVerifier) {
+      userCol = usersMap[a.userId] || a.userId || 'Unknown User';
+      verifierCol = usersMap[a.details?.verifierId] || a.details?.verifierId || 'System';
+    } else {
+      userCol = usersMap[a.userId] || a.userId || 'Unknown User';
+      verifierCol = 'System';
+    }
+
     const event = a.event || 'N/A';
     const refId = a.details?.requestId || 'N/A';
     const ip = a.ip || '127.0.0.1';
@@ -248,8 +266,9 @@ function exportAuditPDF(rows, usersMap, title = 'Audit Log Report') {
     const ts = new Date(a.timestamp).toLocaleString();
     return `<tr>
       <td>${ts}</td>
-      <td>${user}</td>
+      <td>${userCol}</td>
       <td>${event}</td>
+      <td>${verifierCol}</td>
       <td style="font-family:monospace;font-size:11px">${refId}</td>
       <td>${ip}</td>
       <td><span style="color:${statusColor};font-weight:600">${status}</span></td>
@@ -295,11 +314,11 @@ function exportAuditPDF(rows, usersMap, title = 'Audit Log Report') {
   <table>
     <thead>
       <tr>
-        <th>Timestamp</th><th>User</th><th>Action</th><th>Ref ID</th><th>IP Address</th><th>Status</th>
+        <th>Timestamp</th><th>User</th><th>Action</th><th>Verifier</th><th>Ref ID</th><th>IP Address</th><th>Status</th>
       </tr>
     </thead>
     <tbody>
-      ${tableRows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:#94a3b8">No records found</td></tr>'}
+      ${tableRows || '<tr><td colspan="7" style="text-align:center;padding:20px;color:#94a3b8">No records found</td></tr>'}
     </tbody>
   </table>
   <div class="footer">University Blockchain Identity &amp; Verification System &mdash; Admin Dashboard &mdash; Confidential</div>
@@ -1026,6 +1045,175 @@ function ProfilePage() {
   );
 }
 
+function VerifiersPage() {
+  const API = `http://${window.location.hostname}:5000/api`;
+  const [verifiers, setVerifiers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
+  const [formError, setFormError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [form, setForm] = useState({ name: '', email: '', password: '', department: '', employeeId: '' });
+
+  const fetchVerifiers = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/admin/verifiers`);
+      const data = await res.json();
+      setVerifiers(data.verifiers || []);
+    } catch { /* silent */ } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchVerifiers(); }, []);
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    setFormError('');
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API}/admin/verifiers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) { setFormError(data.error || 'Failed to create verifier'); return; }
+      setSuccessMsg(`✅ Verifier "${form.name}" created! They can log in with email: ${form.email} and the password you set.`);
+      setForm({ name: '', email: '', password: '', department: '', employeeId: '' });
+      setShowForm(false);
+      fetchVerifiers();
+      setTimeout(() => setSuccessMsg(''), 8000);
+    } catch { setFormError('Network error. Is the backend running?'); }
+    finally { setSubmitting(false); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this verifier account? They will no longer be able to log in.')) return;
+    setDeleteId(id);
+    try {
+      const res = await fetch(`${API}/admin/verifiers/${id}`, { method: 'DELETE' });
+      if (res.ok) { fetchVerifiers(); setSuccessMsg('Verifier account deleted.'); setTimeout(() => setSuccessMsg(''), 4000); }
+    } catch { /* silent */ } finally { setDeleteId(null); }
+  };
+
+  return (
+    <>
+      <PageHeader title="Verifier Management" subtitle="Create and manage verifier accounts" />
+
+      {successMsg && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 12, padding: '1rem 1.25rem', marginBottom: '1rem', color: '#166534', fontSize: '0.875rem', lineHeight: 1.6 }}>
+          {successMsg}
+        </div>
+      )}
+
+      <Panel title="Verifier Accounts" subtitle={loading ? 'Loading…' : `${verifiers.length} verifier${verifiers.length !== 1 ? 's' : ''} registered`} icon={UserRoundCog}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+          <button className="primary-btn" onClick={() => { setShowForm(!showForm); setFormError(''); }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <Plus size={16} /> {showForm ? 'Cancel' : 'Add Verifier'}
+          </button>
+        </div>
+
+        {showForm && (
+          <form onSubmit={handleAdd} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '1.25rem', marginBottom: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#1e293b' }}>New Verifier Account</h3>
+              <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: '#64748b' }}>These credentials will be used to log into the Verifier Dashboard.</p>
+            </div>
+            {formError && <div style={{ gridColumn: '1 / -1', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '0.6rem 0.9rem', color: '#dc2626', fontSize: '0.82rem' }}>{formError}</div>}
+            {[
+              { label: 'Full Name *', key: 'name', placeholder: 'e.g. John Smith', type: 'text' },
+              { label: 'Email Address *', key: 'email', placeholder: 'john.smith@ms.sab.ac.lk', type: 'email' },
+              { label: 'Password *', key: 'password', placeholder: 'Min. 8 characters', type: 'password' },
+              { label: 'Employee ID', key: 'employeeId', placeholder: 'e.g. VER-003', type: 'text' },
+              { label: 'Department', key: 'department', placeholder: 'e.g. Student Affairs', type: 'text' },
+            ].map(({ label, key, placeholder, type }) => (
+              <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#475569' }}>{label}</label>
+                <input
+                  type={type}
+                  required={label.endsWith('*')}
+                  value={form[key]}
+                  onChange={(e) => setForm(prev => ({ ...prev, [key]: e.target.value }))}
+                  placeholder={placeholder}
+                  style={{ padding: '0.55rem 0.75rem', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: '0.875rem', outline: 'none' }}
+                />
+              </div>
+            ))}
+            <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
+              <button type="button" className="ghost-btn" onClick={() => setShowForm(false)}>Cancel</button>
+              <button type="submit" className="primary-btn" disabled={submitting}>
+                {submitting ? 'Creating…' : 'Create Verifier Account'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {loading ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>Loading verifiers…</div>
+        ) : verifiers.length === 0 ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>No verifier accounts yet. Click "Add Verifier" to create one.</div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Employee ID</th>
+                  <th>Department</th>
+                  <th>Last Login</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {verifiers.map((v) => (
+                  <tr key={v.id}>
+                    <td style={{ fontWeight: 600 }}>{v.name || '—'}</td>
+                    <td>{v.email}</td>
+                    <td>{v.employeeId || '—'}</td>
+                    <td>{v.department || '—'}</td>
+                    <td style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                      {v.lastLogin ? new Date(v.lastLogin).toLocaleString() : 'Never'}
+                    </td>
+                    <td>
+                      <button
+                        onClick={() => handleDelete(v.id)}
+                        disabled={deleteId === v.id}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.35rem 0.75rem', borderRadius: 8, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', fontSize: '0.78rem', cursor: 'pointer', fontWeight: 600 }}
+                      >
+                        <Trash2 size={13} /> {deleteId === v.id ? 'Deleting…' : 'Delete'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+
+      <Panel title="Login Instructions" subtitle="Share these details with your verifiers" icon={Shield}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div style={{ background: '#f8fafc', borderRadius: 10, padding: '1rem', border: '1px solid #e2e8f0' }}>
+            <p style={{ margin: 0, fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dashboard URL</p>
+            <p style={{ margin: '0.4rem 0 0', fontSize: '0.875rem', color: '#1e293b', fontWeight: 600 }}>{window.location.protocol}//{window.location.hostname}:5174</p>
+            <p style={{ margin: '0.25rem 0 0', fontSize: '0.78rem', color: '#64748b' }}>The verifier dashboard runs on port 5174 by default</p>
+          </div>
+          <div style={{ background: '#f8fafc', borderRadius: 10, padding: '1rem', border: '1px solid #e2e8f0' }}>
+            <p style={{ margin: 0, fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Credentials</p>
+            <p style={{ margin: '0.4rem 0 0', fontSize: '0.875rem', color: '#1e293b' }}>Email + Password you set when creating their account</p>
+            <p style={{ margin: '0.25rem 0 0', fontSize: '0.78rem', color: '#64748b' }}>Passwords are hashed — they cannot be recovered, only reset</p>
+          </div>
+        </div>
+      </Panel>
+    </>
+  );
+}
+
 function SettingsPage() {
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1136,12 +1324,12 @@ function SettingsPage() {
       </Panel>
       <Panel className="outlined" title="System Information">
         <div className="info-grid three">
-          <Info label="System Version" value="v2.1.4" />
+          <Info label="System Version" value="v1.0.0" />
           <Info label="Last Update" value={new Date().toLocaleDateString()} />
-          <Info label="Database Size" value="2.4 GB" />
+          <Info label="Database" value="Firebase Realtime DB" />
           <Info label="Active Users" value={activeUsers} />
-          <Info label="Uptime" value="99.98%" />
-          <Info label="Server Location" value="Colombo, Sri Lanka" />
+          <Info label="Session Uptime" value={(() => { const s = Math.floor(performance.now() / 1000); if (s < 60) return `${s}s`; if (s < 3600) return `${Math.floor(s/60)}m ${s%60}s`; return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`; })()} />
+          <Info label="Server" value="Google Cloud (Firebase)" />
         </div>
       </Panel>
       <div className="button-row"><button className="ghost-btn" onClick={fetchSettings}><RefreshCcw size={14} /> Reset to Saved</button><button className="primary-btn" onClick={handleSave} disabled={saving}><Download size={14} /> {saving ? 'Saving...' : 'Save All Changes'}</button></div>
@@ -1167,15 +1355,34 @@ function AuditTable({ compact = false, customRows = [], usersMap = {} }) {
     ['2026-03-25 14:32:15', 'System User', 'Verification Event', 'Admin', 'N/A', '192.168.1.1', 'Success']
   ];
   
-  const mappedRows = customRows.length > 0 ? customRows.map(a => [
-    new Date(a.timestamp).toLocaleString(),
-    usersMap[a.userId] || a.userId || 'Unknown User',
-    a.event,
-    'System', // verifier
-    a.details?.requestId || 'N/A', // txhash mock
-    a.ip || '127.0.0.1',
-    a.event.toLowerCase().includes('reject') || a.event.toLowerCase().includes('fail') ? 'Failure' : 'Success'
-  ]) : fallbackRows;
+  const mappedRows = customRows.length > 0 ? customRows.map(a => {
+    const isVerifierAction = a.event?.includes('Verifier');
+    const isStudentActionWithVerifier = a.details?.verifierId;
+    
+    let userCol = 'Unknown User';
+    let verifierCol = 'System';
+    
+    if (isVerifierAction) {
+      userCol = usersMap[a.details?.studentId] || a.details?.studentId || 'Unknown User';
+      verifierCol = usersMap[a.userId] || a.userId || 'Unknown Verifier';
+    } else if (isStudentActionWithVerifier) {
+      userCol = usersMap[a.userId] || a.userId || 'Unknown User';
+      verifierCol = usersMap[a.details?.verifierId] || a.details?.verifierId || 'System';
+    } else {
+      userCol = usersMap[a.userId] || a.userId || 'Unknown User';
+      verifierCol = 'System';
+    }
+
+    return [
+      new Date(a.timestamp).toLocaleString(),
+      userCol,
+      a.event,
+      verifierCol,
+      a.details?.requestId || 'N/A',
+      a.ip || '127.0.0.1',
+      a.event.toLowerCase().includes('reject') || a.event.toLowerCase().includes('fail') ? 'Failure' : 'Success'
+    ];
+  }) : fallbackRows;
 
   const rows = compact ? mappedRows.slice(0, 7) : mappedRows;
   
