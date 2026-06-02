@@ -129,6 +129,11 @@ button {
   color: #d7e5f7;
   background: var(--navy-dark);
   box-shadow: 10px 0 24px rgba(15, 23, 42, 0.24);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar.collapsed {
+  width: 76px;
 }
 
 .brand {
@@ -140,6 +145,11 @@ button {
   color: #fff;
   font-size: 15px;
   line-height: 1.15;
+}
+
+.sidebar.collapsed .brand {
+  flex-direction: column;
+  gap: 8px;
 }
 
 .brand-icon {
@@ -182,6 +192,11 @@ button {
   width: 100%;
   min-width: 0;
   padding-left: 272px;
+  transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.workspace.collapsed {
+  padding-left: 76px;
 }
 
 .topbar {
@@ -646,6 +661,17 @@ td {
   height: 38px;
 }
 
+.read-field.is-readonly span {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+}
+
+.read-field.is-readonly input {
+  color: #64748b;
+  cursor: not-allowed;
+}
+
 .side-stack .panel {
   margin-bottom: 24px;
 }
@@ -798,5 +824,15 @@ td {
     display: block;
     overflow-x: auto;
     white-space: nowrap;
+  }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
   }
 }

@@ -13,6 +13,8 @@ import {
   Camera,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CircleUserRound,
   ClipboardList,
   Database,
@@ -23,9 +25,11 @@ import {
   FileText,
   Gauge,
   KeyRound,
+  Loader2,
   Lock,
   LogOut,
   Menu,
+  Minus,
   Network,
   Plus,
   RefreshCcw,
@@ -59,6 +63,7 @@ function App() {
   const [page, setPage] = useState('dashboard');
   const [menuOpen, setMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   if (!isAuthed) {
     return <LoginPage onLogin={() => setIsAuthed(true)} />;
@@ -68,8 +73,8 @@ function App() {
 
   return (
     <div className="shell">
-      <Sidebar page={page} setPage={setPage} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-      <div className="workspace">
+      <Sidebar page={page} setPage={setPage} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} sidebarCollapsed={sidebarCollapsed} setSidebarCollapsed={setSidebarCollapsed} />
+      <div className={`workspace ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <Topbar
           title={title}
           menuOpen={menuOpen}
@@ -153,8 +158,8 @@ function LoginPage({ onLogin }) {
           Password
           <span><Lock size={16} /><input type="password" placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} required /></span>
         </label>
-        <button className="primary-btn" type="submit" disabled={loading}>
-          {loading ? 'Signing in...' : 'Sign In'}
+        <button className="primary-btn" type="submit" disabled={loading} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+          {loading ? <><Loader2 className="spinner" size={16} /> Signing in...</> : 'Sign In'}
         </button>
         <small>Only authorized @ms.sab.ac.lk accounts</small>
       </form>
@@ -162,22 +167,37 @@ function LoginPage({ onLogin }) {
   );
 }
 
-function Sidebar({ page, setPage, sidebarOpen, setSidebarOpen }) {
+function Sidebar({ page, setPage, sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed }) {
   return (
     <>
-      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <div className="brand">
-          <div className="brand-icon"><Shield size={20} /></div>
-          <strong>University of<br />Blockchain Identity</strong>
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
+        <div className="brand" style={{ padding: sidebarCollapsed ? '0 10px' : '0 22px', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', position: 'relative' }}>
+          <div className="brand-icon" style={{ display: 'grid', placeItems: 'center' }}><Shield size={20} /></div>
+          {!sidebarCollapsed && <strong>University of<br />Blockchain Identity</strong>}
+          
+          <button 
+            className="collapse-btn" 
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            style={{ 
+              position: sidebarCollapsed ? 'static' : 'absolute',
+              right: sidebarCollapsed ? 'auto' : '15px',
+              marginTop: sidebarCollapsed ? '15px' : '0',
+              background: 'rgba(255, 255, 255, 0.1)', border: 'none', color: '#fff', cursor: 'pointer', padding: '4px', display: 'grid', placeItems: 'center', borderRadius: '4px' 
+            }}
+          >
+            {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
         </div>
-        <nav>
+        <nav style={{ padding: sidebarCollapsed ? '6px 8px' : '6px 15px' }}>
           {navItems.map(({ id, label, icon: Icon }) => (
             <button
               className={page === id ? 'active' : ''}
               key={id}
               onClick={() => { setPage(id); setSidebarOpen(false); }}
+              title={sidebarCollapsed ? label : undefined}
+              style={{ justifyContent: sidebarCollapsed ? 'center' : 'flex-start', padding: sidebarCollapsed ? '0' : '0 14px' }}
             >
-              <Icon size={17} /> {label}
+              <Icon size={17} style={{ flexShrink: 0 }} /> {!sidebarCollapsed && <span>{label}</span>}
             </button>
           ))}
         </nav>
@@ -997,7 +1017,7 @@ function ProfilePage() {
   const handleSave = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`http://:5000/api/admin/profile/${adminUser.id}`, {
+      const response = await fetch(`http://${window.location.hostname}:5000/api/admin/profile/${adminUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -1042,13 +1062,13 @@ function ProfilePage() {
         >
           <div className="avatar-large" style={{ position: 'relative' }}>
             {profilePic ? (
-              <img src={profilePic} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+              <img src={profilePic} alt="Profile" style={{ width: '105px', height: '105px', borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
             ) : (
               <User size={58} />
             )}
             {isEditing && (
               <div 
-                style={{ position: 'absolute', bottom: 0, right: 0, background: 'var(--color-primary)', color: 'white', padding: '6px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ position: 'absolute', bottom: '2px', right: '2px', background: 'white', color: 'var(--navy)', padding: '6px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Camera size={14} />
@@ -1060,7 +1080,7 @@ function ProfilePage() {
             <ReadField label="Full Name" icon={User} value={formData.name || ''} onChange={handleChange('name')} readOnly={!isEditing} />
             <ReadField label="Email Address" icon={BriefcaseBusiness} value={formData.email || ''} readOnly />
             <ReadField label="Phone Number" icon={CircleUserRound} value={formData.phone || ''} onChange={handleChange('phone')} readOnly={!isEditing} />
-            <ReadField label="Department" icon={Database} value={formData.department || ''} onChange={handleChange('department')} readOnly={!isEditing} />
+            <ReadField label="Department" icon={Database} value={formData.department || ''} readOnly />
             <ReadField label="Employee ID" icon={BadgeCheck} value={formData.employeeId || ''} readOnly />
             <ReadField label="Join Date" icon={Calendar} value={joinDate} readOnly />
           </div>
@@ -1086,6 +1106,7 @@ function VerifiersPage() {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
   const [formError, setFormError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [form, setForm] = useState({ name: '', email: '', password: '', department: '', employeeId: '' });
@@ -1124,6 +1145,28 @@ function VerifiersPage() {
     finally { setSubmitting(false); }
   };
 
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setFormError('');
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API}/admin/verifiers/${editingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) { setFormError(data.error || 'Failed to update verifier'); return; }
+      setSuccessMsg(`✅ Verifier "${form.name}" updated successfully!`);
+      setForm({ name: '', email: '', password: '', department: '', employeeId: '' });
+      setEditingId(null);
+      setShowForm(false);
+      fetchVerifiers();
+      setTimeout(() => setSuccessMsg(''), 8000);
+    } catch { setFormError('Network error. Is the backend running?'); }
+    finally { setSubmitting(false); }
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this verifier account? They will no longer be able to log in.')) return;
     setDeleteId(id);
@@ -1145,23 +1188,23 @@ function VerifiersPage() {
 
       <Panel title="Verifier Accounts" subtitle={loading ? 'Loading…' : `${verifiers.length} verifier${verifiers.length !== 1 ? 's' : ''} registered`} icon={UserRoundCog}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-          <button className="primary-btn" onClick={() => { setShowForm(!showForm); setFormError(''); }}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <Plus size={16} /> {showForm ? 'Cancel' : 'Add Verifier'}
+          <button className={showForm ? 'ghost-btn' : 'primary-btn'} onClick={() => { setShowForm(!showForm); setFormError(''); setEditingId(null); setForm({ name: '', email: '', password: '', department: '', employeeId: '' }); }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', ...(showForm ? { background: '#fef2f2', color: '#dc2626', borderColor: '#fecaca' } : {}) }}>
+            {showForm ? <Minus size={16} /> : <Plus size={16} />} {showForm ? 'Cancel' : 'Add Verifier'}
           </button>
         </div>
 
         {showForm && (
-          <form onSubmit={handleAdd} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '1.25rem', marginBottom: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+          <form onSubmit={editingId ? handleEditSubmit : handleAdd} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '1.25rem', marginBottom: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
             <div style={{ gridColumn: '1 / -1' }}>
-              <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#1e293b' }}>New Verifier Account</h3>
+              <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#1e293b' }}>{editingId ? 'Edit Verifier Account' : 'New Verifier Account'}</h3>
               <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: '#64748b' }}>These credentials will be used to log into the Verifier Dashboard.</p>
             </div>
             {formError && <div style={{ gridColumn: '1 / -1', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '0.6rem 0.9rem', color: '#dc2626', fontSize: '0.82rem' }}>{formError}</div>}
             {[
               { label: 'Full Name *', key: 'name', placeholder: 'e.g. John Smith', type: 'text' },
               { label: 'Email Address *', key: 'email', placeholder: 'john.smith@ms.sab.ac.lk', type: 'email' },
-              { label: 'Password *', key: 'password', placeholder: 'Min. 8 characters', type: 'password' },
+              { label: editingId ? 'Password' : 'Password *', key: 'password', placeholder: editingId ? 'Leave blank to keep unchanged' : 'Min. 8 characters', type: 'password' },
               { label: 'Employee ID', key: 'employeeId', placeholder: 'e.g. VER-003', type: 'text' },
               { label: 'Department', key: 'department', placeholder: 'e.g. Student Affairs', type: 'text' },
             ].map(({ label, key, placeholder, type }) => (
@@ -1178,9 +1221,9 @@ function VerifiersPage() {
               </div>
             ))}
             <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
-              <button type="button" className="ghost-btn" onClick={() => setShowForm(false)}>Cancel</button>
+              <button type="button" className="ghost-btn" onClick={() => { setShowForm(false); setEditingId(null); }}>Cancel</button>
               <button type="submit" className="primary-btn" disabled={submitting}>
-                {submitting ? 'Creating…' : 'Create Verifier Account'}
+                {submitting ? (editingId ? 'Updating…' : 'Creating…') : (editingId ? 'Update Verifier' : 'Create Verifier Account')}
               </button>
             </div>
           </form>
@@ -1214,6 +1257,18 @@ function VerifiersPage() {
                       {v.lastLogin ? new Date(v.lastLogin).toLocaleString() : 'Never'}
                     </td>
                     <td>
+                      <button
+                        onClick={() => {
+                          setEditingId(v.id);
+                          setForm({ name: v.name || '', email: v.email || '', password: '', department: v.department || '', employeeId: v.employeeId || '' });
+                          setShowForm(true);
+                          setFormError('');
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.35rem 0.75rem', borderRadius: 8, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#334155', fontSize: '0.78rem', cursor: 'pointer', fontWeight: 600, marginRight: '0.5rem' }}
+                      >
+                        <Edit3 size={13} /> Edit
+                      </button>
                       <button
                         onClick={() => handleDelete(v.id)}
                         disabled={deleteId === v.id}
@@ -1483,7 +1538,7 @@ function Toggle({ label, detail, on, onChange }) {
 
 function ReadField({ label, value, icon: Icon, onChange, readOnly = true }) {
   return (
-    <label className="read-field">
+    <label className={`read-field ${readOnly ? 'is-readonly' : ''}`}>
       {label}
       <span>{Icon && <Icon size={14} />}<input value={value} onChange={onChange} readOnly={readOnly} /></span>
     </label>
