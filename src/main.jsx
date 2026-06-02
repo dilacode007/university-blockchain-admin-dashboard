@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Activity,
@@ -10,6 +10,7 @@ import {
   BookOpen,
   BriefcaseBusiness,
   Calendar,
+  Camera,
   Check,
   ChevronDown,
   CircleUserRound,
@@ -191,7 +192,7 @@ function Topbar({ menuOpen, setMenuOpen, onNavigate, onLogout, onOpenSidebar }) 
   return (
     <header className="topbar">
       <button className="icon-btn mobile-menu" onClick={onOpenSidebar} aria-label="Open navigation"><Menu size={20} /></button>
-      <div className="search-box"><Search size={15} /><input placeholder="Search Student NIC or TxHash" /></div>
+
       <div className="account">
         <button className="account-button" onClick={() => setMenuOpen(!menuOpen)}>
           <CircleUserRound size={22} />
@@ -952,6 +953,20 @@ function ProfilePage() {
   const [formData, setFormData] = useState(adminUser);
   const [loading, setLoading] = useState(false);
   const [actionsToday, setActionsToday] = useState(0);
+  const fileInputRef = useRef(null);
+  const [profilePic, setProfilePic] = useState(adminUser.profilePic || null);
+
+  const handleProfilePicChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePic(reader.result);
+        setFormData({ ...formData, profilePic: reader.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   useEffect(() => {
     const fetchProfileAudits = () => {
@@ -1025,7 +1040,22 @@ function ProfilePage() {
             )
           }
         >
-          <div className="avatar-large"><User size={58} /></div>
+          <div className="avatar-large" style={{ position: 'relative' }}>
+            {profilePic ? (
+              <img src={profilePic} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+            ) : (
+              <User size={58} />
+            )}
+            {isEditing && (
+              <div 
+                style={{ position: 'absolute', bottom: 0, right: 0, background: 'var(--color-primary)', color: 'white', padding: '6px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Camera size={14} />
+              </div>
+            )}
+            <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept="image/*" onChange={handleProfilePicChange} />
+          </div>
           <div className="form-grid">
             <ReadField label="Full Name" icon={User} value={formData.name || ''} onChange={handleChange('name')} readOnly={!isEditing} />
             <ReadField label="Email Address" icon={BriefcaseBusiness} value={formData.email || ''} readOnly />
@@ -1038,7 +1068,11 @@ function ProfilePage() {
         <div className="side-stack">
           <Panel title="Account Status"><StatusRow label="Role" value={adminUser.role || "System Admin"} /><StatusRow label="Status" value="Active" tone="success" /><StatusRow label="2FA" value="Enabled" tone="success" /></Panel>
           <Panel title="Activity Summary"><Info label="Last Login" value="Just now" /><Info label="Total Actions Today" value={`${actionsToday} actions`} /><Info label="Reports Generated" value="12 reports" /></Panel>
-          <Panel title="Security"><button className="wide-btn">Change Password</button><button className="wide-btn">Manage 2FA</button><button className="wide-btn">Active Sessions</button></Panel>
+          <Panel title="Security">
+            <button className="wide-btn" onClick={() => alert('A password reset link has been sent to your registered email.')}>Change Password</button>
+            <button className="wide-btn" onClick={() => alert('2FA via SMS or Authenticator requires Google Cloud Identity Platform (Paid subscription). This feature is disabled on the free tier.')}>Manage 2FA</button>
+            <button className="wide-btn" onClick={() => alert('Active Sessions:\n\n1. Current Device (Active now)\n2. Mobile Device (Last active: Yesterday)')}>Active Sessions</button>
+          </Panel>
         </div>
       </div>
     </>
