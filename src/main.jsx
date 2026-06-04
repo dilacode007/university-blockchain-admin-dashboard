@@ -1,5 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import {
   Activity,
   AlertTriangle,
@@ -158,7 +160,7 @@ function LoginPage({ onLogin }) {
           Password
           <span><Lock size={16} /><input type="password" placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} required /></span>
         </label>
-        <button className="primary-btn" type="submit" disabled={loading} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+        <button className="primary-btn" type="submit" disabled={loading}>
           {loading ? <><Loader2 className="spinner" size={16} /> Signing in...</> : 'Sign In'}
         </button>
         <small>Only authorized @ms.sab.ac.lk accounts</small>
@@ -255,12 +257,24 @@ function MetricCard({ icon: Icon, label, value, tone, detail, children }) {
   );
 }
 
-// ─── Shared PDF export helper ───────────────────────────────────────────────
 function exportAuditPDF(rows, usersMap, title = 'Audit Log Report') {
+  const doc = new jsPDF();
   const now = new Date();
   const dateStr = now.toLocaleString();
 
-  const tableRows = rows.map(a => {
+  doc.setFontSize(16);
+  doc.setTextColor(15, 45, 85);
+  doc.text('University Blockchain Identity System', 14, 20);
+  
+  doc.setFontSize(12);
+  doc.setTextColor(100);
+  doc.text(title, 14, 28);
+  
+  doc.setFontSize(10);
+  doc.text(`Generated: ${dateStr}`, 14, 34);
+  doc.text(`Total Records: ${rows.length}`, 14, 40);
+
+  const tableData = rows.map(a => {
     const isVerifierAction = a.event?.includes('Verifier');
     const isStudentActionWithVerifier = a.details?.verifierId;
     
@@ -283,75 +297,31 @@ function exportAuditPDF(rows, usersMap, title = 'Audit Log Report') {
     const ip = a.ip || '127.0.0.1';
     const isFail = event.toLowerCase().includes('reject') || event.toLowerCase().includes('fail');
     const status = isFail ? 'Failure' : 'Success';
-    const statusColor = isFail ? '#dc2626' : '#16a34a';
     const ts = new Date(a.timestamp).toLocaleString();
-    return `<tr>
-      <td>${ts}</td>
-      <td>${userCol}</td>
-      <td>${event}</td>
-      <td>${verifierCol}</td>
-      <td style="font-family:monospace;font-size:11px">${refId}</td>
-      <td>${ip}</td>
-      <td><span style="color:${statusColor};font-weight:600">${status}</span></td>
-    </tr>`;
-  }).join('');
 
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>${title}</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; padding: 32px; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; border-bottom: 2px solid #0f2d55; padding-bottom: 16px; }
-    .header h1 { font-size: 20px; font-weight: 700; color: #0f2d55; }
-    .header p { font-size: 12px; color: #64748b; margin-top: 4px; }
-    .meta { text-align: right; font-size: 12px; color: #64748b; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    thead tr { background: #0f2d55; color: #fff; }
-    thead th { padding: 8px 10px; text-align: left; font-weight: 600; }
-    tbody tr:nth-child(even) { background: #f8fafc; }
-    tbody tr:hover { background: #e2e8f0; }
-    tbody td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; }
-    .footer { margin-top: 20px; font-size: 11px; color: #94a3b8; text-align: center; }
-    @media print {
-      body { padding: 16px; }
-      .no-print { display: none; }
+    return [ts, userCol, event, verifierCol, refId, ip, status];
+  });
+
+  doc.autoTable({
+    startY: 45,
+    head: [['Timestamp', 'User', 'Action', 'Verifier', 'Ref ID', 'IP Address', 'Status']],
+    body: tableData,
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [15, 45, 85] },
+    didParseCell: function(data) {
+      if (data.section === 'body' && data.column.index === 6) {
+        if (data.cell.raw === 'Failure') {
+          data.cell.styles.textColor = [220, 38, 38];
+          data.cell.styles.fontStyle = 'bold';
+        } else {
+          data.cell.styles.textColor = [22, 163, 74];
+          data.cell.styles.fontStyle = 'bold';
+        }
+      }
     }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div>
-      <h1>University Blockchain Identity System</h1>
-      <p>${title}</p>
-    </div>
-    <div class="meta">
-      <strong>Generated:</strong> ${dateStr}<br/>
-      <strong>Total Records:</strong> ${rows.length}
-    </div>
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>Timestamp</th><th>User</th><th>Action</th><th>Verifier</th><th>Ref ID</th><th>IP Address</th><th>Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${tableRows || '<tr><td colspan="7" style="text-align:center;padding:20px;color:#94a3b8">No records found</td></tr>'}
-    </tbody>
-  </table>
-  <div class="footer">University Blockchain Identity &amp; Verification System &mdash; Admin Dashboard &mdash; Confidential</div>
-  <script>window.onload = () => { window.print(); };<\/script>
-</body>
-</html>`;
+  });
 
-  const win = window.open('', '_blank', 'width=900,height=700');
-  if (win) {
-    win.document.write(html);
-    win.document.close();
-  }
+  doc.save('audit_log_report.pdf');
 }
 
 
@@ -361,6 +331,10 @@ function DashboardPage() {
   const [verifications, setVerifications] = useState([]);
   const [verifiers, setVerifiers] = useState([]);
   const [audits, setAudits] = useState([]);
+  
+  const [managingRole, setManagingRole] = useState(null);
+  const [selectedRole, setSelectedRole] = useState('');
+  const [savingRole, setSavingRole] = useState(false);
 
 
   useEffect(() => {
@@ -389,6 +363,25 @@ function DashboardPage() {
   const usersMap = {
     ...Object.fromEntries(users.map(u => [u.id, u.name])),
     ...Object.fromEntries(verifiers.map(v => [v.id, v.name]))
+  };
+
+  const handleUpdateRole = async () => {
+    if (!managingRole) return;
+    setSavingRole(true);
+    try {
+      const res = await fetch(`http://${window.location.hostname}:5000/api/admin/verifiers/${managingRole.id}/role`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: selectedRole })
+      });
+      if (!res.ok) throw new Error('Failed to update role');
+      setVerifiers(prev => prev.map(v => v.id === managingRole.id ? { ...v, role: selectedRole } : v));
+      setManagingRole(null);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSavingRole(false);
+    }
   };
 
   return (
@@ -441,14 +434,45 @@ function DashboardPage() {
                 <td>{v.name}</td>
                 <td>{v.email}</td>
                 <td>{v.department || 'N/A'}</td>
-                <td><Badge>{v.role || 'Admin'}</Badge></td>
-                <td><button className="small-btn">Manage Role <ChevronDown size={13} /></button></td>
+                <td><Badge tone={v.role === 'Admin' ? 'danger' : 'success'}>{v.role || 'verifier'}</Badge></td>
+                <td><button className="small-btn" onClick={() => { setManagingRole(v); setSelectedRole(v.role || 'verifier'); }}>Manage Role <ChevronDown size={13} /></button></td>
               </tr>
             ))}
           </tbody>
         </table>
       </Panel>
       <div className="center-action"><button className="primary-btn"><FileText size={15} /> Generate System Report for {adminUser.name || 'Admin'}</button></div>
+
+      {managingRole && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--card)', borderRadius: '1rem', padding: '2rem', width: '400px', maxWidth: '95vw', boxShadow: '0 25px 60px rgba(0,0,0,0.4)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700 }}>Manage Role</h2>
+              <button onClick={() => setManagingRole(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={20} /></button>
+            </div>
+            <p style={{ fontSize: '0.9rem', color: 'var(--muted)', marginBottom: '1rem' }}>
+              Assign a new role to <strong>{managingRole.name}</strong>.
+            </p>
+            <div>
+              <select 
+                value={selectedRole} 
+                onChange={e => setSelectedRole(e.target.value)}
+                style={{ width: '100%', height: '38px', padding: '0 12px', borderRadius: '7px', border: '1px solid var(--line)', background: '#fff', color: '#334155', fontSize: '14px', marginBottom: '1.5rem' }}
+              >
+                <option value="verifier">Verifier (Standard)</option>
+                <option value="Admin">Admin (Full Access)</option>
+                <option value="Suspended">Suspended</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button className="ghost-btn" onClick={() => setManagingRole(null)}>Cancel</button>
+              <button className="primary-btn" onClick={handleUpdateRole} disabled={savingRole}>
+                {savingRole ? 'Saving...' : 'Update Role'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -460,11 +484,17 @@ function UsersPage() {
   
   const [verifying, setVerifying] = useState(false);
 
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     const fetchStudents = () => {
       fetch(`http://${window.location.hostname}:5000/api/admin/students`)
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
         .then(data => {
+            console.log('[UsersPage] raw data from API:', data);
             const formatted = (data.students || []).map(s => {
               let verifStatus = s.verificationStatus;
               if (!verifStatus) {
@@ -481,7 +511,13 @@ function UsersPage() {
                 original: s
               };
             });
+            console.log('[UsersPage] formatted students:', formatted.length);
           setStudents(formatted);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error('[UsersPage] fetch error:', err);
+          setLoading(false);
         });
     };
 
@@ -543,10 +579,12 @@ function UsersPage() {
         <table>
           <thead><tr><th>Student Name</th><th>NIC</th><th>Email</th><th>Enrolled Date</th><th>Status</th><th>Verification</th><th>Actions</th></tr></thead>
           <tbody>
-            {filteredStudents.length === 0 ? (
-              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted)' }}>No students match your search.</td></tr>
+            {loading ? (
+              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted)' }}>Loading students...</td></tr>
+            ) : filteredStudents.length === 0 ? (
+              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted)' }}>{students.length === 0 ? 'No students registered yet.' : 'No students match your search.'}</td></tr>
             ) : filteredStudents.map((row) => (
-              <tr key={row.nic}>
+              <tr key={row.id}>
                 <td>{row.name}</td>
                 <td>{row.nic}</td>
                 <td>{row.email}</td>
