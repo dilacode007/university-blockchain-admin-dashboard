@@ -54,7 +54,7 @@ const navItems = [
   { id: 'audit', label: 'Audit Logs', icon: ClipboardList },
   { id: 'exams', label: 'Exam Management', icon: BookOpen },
   { id: 'blockchain', label: 'Blockchain Status', icon: Database },
-  { id: 'settings', label: 'Settings', icon: SlidersHorizontal }
+  { id: 'settings', label: 'Settings', icon: SlidersHorizontal }   // hh
 ];
 
 const chainTransactions = [];
