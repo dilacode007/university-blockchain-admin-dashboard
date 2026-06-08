@@ -567,6 +567,35 @@ function UsersPage() {
     }
   };
 
+  const handleDeleteUser = async (studentId, studentName) => {
+    if (!window.confirm(`Are you sure you want to permanently delete student '${studentName}'? This action cannot be undone and will clear all their enrollments and data.`)) {
+      return;
+    }
+    
+    setVerifying(true); // Using verifying state for loading indicator
+    try {
+      const res = await fetch(`http://${window.location.hostname}:5000/api/admin/students/${studentId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to delete student');
+      }
+      
+      alert('Student deleted successfully.');
+      // Remove from local state immediately
+      setStudents(prev => prev.filter(s => s.id !== studentId));
+      if (selectedStudent && selectedStudent.id === studentId) {
+        setSelectedStudent(null);
+      }
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   return (
     <>
       <PageHeader title="User Management" subtitle="Manage student accounts and verification status" action={<button className="primary-btn" onClick={handleAddStudent}><Plus size={15} /> Add New Student</button>} />
@@ -607,7 +636,12 @@ function UsersPage() {
                     <option value="Rejected">Rejected</option>
                   </select>
                 </td>
-                <td><button className="small-btn" onClick={() => setSelectedStudent(row)}>View Details</button></td>
+                <td>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button className="small-btn" onClick={() => setSelectedStudent(row)}>View Details</button>
+                    <button className="small-btn" style={{ color: '#dc2626', borderColor: '#fca5a5', background: '#fef2f2' }} onClick={() => handleDeleteUser(row.id, row.name)}>Delete</button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
