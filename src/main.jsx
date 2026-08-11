@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
+import logoImg from './assets/logo.jpg';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import {
@@ -146,7 +147,7 @@ function LoginPage({ onLogin }) {
   return (
     <main className="login-screen">
       <form className="login-card" onSubmit={handleSubmit}>
-        <div className="login-mark"><Shield size={38} /></div>
+        <div className="login-mark" style={{ overflow: 'hidden', padding: 0 }}><img src={logoImg} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>
         <h1>University Blockchain Identity</h1>
         <p>Admin Dashboard Login</p>
         
@@ -174,8 +175,14 @@ function Sidebar({ page, setPage, sidebarOpen, setSidebarOpen, sidebarCollapsed,
     <>
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="brand" style={{ padding: sidebarCollapsed ? '0 10px' : '0 22px', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', position: 'relative' }}>
-          <div className="brand-icon" style={{ display: 'grid', placeItems: 'center' }}><Shield size={20} /></div>
-          {!sidebarCollapsed && <strong>University of<br />Blockchain Identity</strong>}
+          {!sidebarCollapsed && (
+            <>
+              <div className="brand-icon" style={{ display: 'grid', placeItems: 'center', overflow: 'hidden', padding: 0, backgroundColor: 'white' }}>
+                <img src={logoImg} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+              <strong>Admin<br />Dashboard </strong>
+            </>
+          )}
           
           <button 
             className="collapse-btn" 
@@ -1487,7 +1494,7 @@ function SettingsPage() {
         <div className="info-grid three">
           <Info label="System Version" value="v1.0.0" />
           <Info label="Last Update" value={new Date().toLocaleDateString()} />
-          <Info label="Database" value="Firebase Realtime DB" />
+          <Info label="Database" value="Firebase Firestore" />
           <Info label="Active Users" value={activeUsers} />
           <Info label="Session Uptime" value={(() => { const s = Math.floor(performance.now() / 1000); if (s < 60) return `${s}s`; if (s < 3600) return `${Math.floor(s/60)}m ${s%60}s`; return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`; })()} />
           <Info label="Server" value="Google Cloud (Firebase)" />

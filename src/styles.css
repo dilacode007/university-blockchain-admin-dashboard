@@ -1,7 +1,7 @@
 :root {
-  --navy: #062f5f;
-  --navy-dark: #03264e;
-  --navy-soft: #163f6b;
+  --navy: #800000;
+  --navy-dark: #4d0000;
+  --navy-soft: #990000;
   --bg: #f5f6f8;
   --card: #ffffff;
   --text: #17202a;
@@ -40,7 +40,7 @@ button {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: radial-gradient(circle at 50% 48%, #073d75 0%, #063766 36%, #032f5d 72%);
+  background: radial-gradient(circle at 50% 48%, #800000 0%, #660000 36%, #4d0000 72%);
 }
 
 .login-card {
