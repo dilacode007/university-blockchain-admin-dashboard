@@ -47,7 +47,64 @@ import {
   X
 } from 'lucide-react';
 import './styles.css';
+import { auth, db } from './firebase/firebase';
+import { signInWithCustomToken } from 'firebase/auth';
+import { collection, onSnapshot } from 'firebase/firestore';
 
+const AdminDataContext = React.createContext();
+
+const toMillis = (t) => t?.toMillis ? t.toMillis() : t;
+
+function AdminDataProvider({ children }) {
+  const [users, setUsers] = useState([]);
+  const [verifications, setVerifications] = useState([]);
+  const [verifiers, setVerifiers] = useState([]);
+  const [audits, setAudits] = useState([]);
+  const [exams, setExams] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchData = async () => {
+      try {
+        const API = `http://${window.location.hostname}:5000/api`;
+        
+        const [usersRes, verifsRes, verifiersRes, auditsRes, examsRes] = await Promise.all([
+          fetch(`${API}/admin/students`),
+          fetch(`${API}/admin/verifications`),
+          fetch(`${API}/admin/verifiers`),
+          fetch(`${API}/admin/audits`),
+          fetch(`${API}/exam`)
+        ]);
+
+        if (isMounted && usersRes.ok) setUsers((await usersRes.json()).students || []);
+        if (isMounted && verifsRes.ok) setVerifications((await verifsRes.json()).verifications || []);
+        if (isMounted && verifiersRes.ok) setVerifiers((await verifiersRes.json()).verifiers || []);
+        if (isMounted && auditsRes.ok) setAudits((await auditsRes.json()).audits || []);
+        if (isMounted && examsRes.ok) setExams((await examsRes.json()).exams || []);
+      } catch (err) {
+        console.error("Error fetching dashboard data:", err);
+      }
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 10000); // refresh every 10s for realtime feel
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  return (
+    <AdminDataContext.Provider value={{ users, verifications, verifiers, audits, exams }}>
+      {children}
+    </AdminDataContext.Provider>
+  );
+}
+
+function useAdminData() {
+  return React.useContext(AdminDataContext) || { users: [], verifications: [], verifiers: [], audits: [], exams: [] };
+}
 const navItems = [
   { id: 'dashboard', label: 'Dashboard Overview', icon: BarChart3 },
   { id: 'users', label: 'User Management', icon: Users },
@@ -75,29 +132,31 @@ function App() {
   const title = navItems.find((item) => item.id === page)?.label ?? 'Dashboard';
 
   return (
-    <div className="shell">
-      <Sidebar page={page} setPage={setPage} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} sidebarCollapsed={sidebarCollapsed} setSidebarCollapsed={setSidebarCollapsed} />
-      <div className={`workspace ${sidebarCollapsed ? 'collapsed' : ''}`}>
-        <Topbar
-          title={title}
-          menuOpen={menuOpen}
-          setMenuOpen={setMenuOpen}
-          onNavigate={setPage}
-          onLogout={() => setIsAuthed(false)}
-          onOpenSidebar={() => setSidebarOpen(true)}
-        />
-        <main className="content">
-          {page === 'dashboard' && <DashboardPage />}
-          {page === 'users' && <UsersPage />}
-          {page === 'verifiers' && <VerifiersPage />}
-          {page === 'audit' && <AuditPage />}
-          {page === 'exams' && <ExamManagementPage />}
-          {page === 'blockchain' && <BlockchainPage />}
-          {page === 'settings' && <SettingsPage />}
-          {page === 'profile' && <ProfilePage />}
-        </main>
+    <AdminDataProvider>
+      <div className="shell">
+        <Sidebar page={page} setPage={setPage} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} sidebarCollapsed={sidebarCollapsed} setSidebarCollapsed={setSidebarCollapsed} />
+        <div className={`workspace ${sidebarCollapsed ? 'collapsed' : ''}`}>
+          <Topbar
+            title={title}
+            menuOpen={menuOpen}
+            setMenuOpen={setMenuOpen}
+            onNavigate={setPage}
+            onLogout={() => setIsAuthed(false)}
+            onOpenSidebar={() => setSidebarOpen(true)}
+          />
+          <main className="content">
+            {page === 'dashboard' && <DashboardPage />}
+            {page === 'users' && <UsersPage />}
+            {page === 'verifiers' && <VerifiersPage />}
+            {page === 'audit' && <AuditPage />}
+            {page === 'exams' && <ExamManagementPage />}
+            {page === 'blockchain' && <BlockchainPage />}
+            {page === 'settings' && <SettingsPage />}
+            {page === 'profile' && <ProfilePage />}
+          </main>
+        </div>
       </div>
-    </div>
+    </AdminDataProvider>
   );
 }
 
@@ -130,6 +189,11 @@ function LoginPage({ onLogin }) {
 
       if (!response.ok) {
         throw new Error(data.error || 'Login failed');
+      }
+
+      // Authenticate with Firebase using custom token
+      if (data.firebaseToken) {
+        await signInWithCustomToken(auth, data.firebaseToken);
       }
 
       // Store the token and admin info
@@ -334,28 +398,11 @@ function exportAuditPDF(rows, usersMap, title = 'Audit Log Report') {
 
 function DashboardPage() {
   const adminUser = JSON.parse(localStorage.getItem('adminUser')) || {};
-  const [users, setUsers] = useState([]);
-  const [verifications, setVerifications] = useState([]);
-  const [verifiers, setVerifiers] = useState([]);
-  const [audits, setAudits] = useState([]);
+  const { users, verifications, verifiers, audits } = useAdminData();
   
   const [managingRole, setManagingRole] = useState(null);
   const [selectedRole, setSelectedRole] = useState('');
   const [savingRole, setSavingRole] = useState(false);
-
-
-  useEffect(() => {
-    const fetchData = () => {
-      fetch(`http://${window.location.hostname}:5000/api/admin/students`).then(res => res.json()).then(data => setUsers(data.students || []));
-      fetch(`http://${window.location.hostname}:5000/api/admin/verifications`).then(res => res.json()).then(data => setVerifications(data.verifications || []));
-      fetch(`http://${window.location.hostname}:5000/api/admin/verifiers`).then(res => res.json()).then(data => setVerifiers(data.verifiers || []));
-      fetch(`http://${window.location.hostname}:5000/api/admin/audits`).then(res => res.json()).then(data => setAudits(data.audits || []));
-    };
-    
-    fetchData(); // Fetch immediately on mount
-    const interval = setInterval(fetchData, 3000); // Poll every 3 seconds
-    return () => clearInterval(interval); // Cleanup on unmount
-  }, []);
 
   const totalUsers = users.length;
   const pendingUsers = users.filter(u => u.isVerified === false).length;
@@ -485,53 +532,31 @@ function DashboardPage() {
 }
 
 function UsersPage() {
-  const [students, setStudents] = useState([]);
+  const { users } = useAdminData();
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  
   const [verifying, setVerifying] = useState(false);
 
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchStudents = () => {
-      fetch(`http://${window.location.hostname}:5000/api/admin/students`)
-        .then(res => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.json();
-        })
-        .then(data => {
-            console.log('[UsersPage] raw data from API:', data);
-            const formatted = (data.students || []).map(s => {
-              let verifStatus = s.verificationStatus;
-              if (!verifStatus) {
-                verifStatus = s.isVerified ? 'Verified' : 'Pending';
-              }
-              return {
-                id: s.id,
-                name: s.name || 'N/A',
-                nic: s.nic || 'N/A',
-                email: s.email || 'N/A',
-                date: s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : 'N/A',
-                status: s.isVerified ? 'Active' : 'Pending',
-                verification: verifStatus,
-                original: s
-              };
-            });
-            console.log('[UsersPage] formatted students:', formatted.length);
-          setStudents(formatted);
-          setLoading(false);
-        })
-        .catch(err => {
-          console.error('[UsersPage] fetch error:', err);
-          setLoading(false);
-        });
-    };
-
-    fetchStudents();
-    const interval = setInterval(fetchStudents, 3000);
-    return () => clearInterval(interval);
-  }, []);
+  const students = useMemo(() => {
+    return users.map(s => {
+      let verifStatus = s.verificationStatus;
+      if (!verifStatus) {
+        verifStatus = s.isVerified ? 'Verified' : 'Pending';
+      }
+      return {
+        id: s.id,
+        name: s.name || 'N/A',
+        nic: s.nic || 'N/A',
+        email: s.email || 'N/A',
+        date: s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : 'N/A',
+        status: s.isVerified ? 'Active' : 'Pending',
+        verification: verifStatus,
+        original: s
+      };
+    });
+  }, [users]);
+  
+  const loading = false;
 
   const filteredStudents = students.filter(s => {
     const q = searchQuery.toLowerCase();
@@ -695,48 +720,21 @@ function UsersPage() {
 }
 
 function AuditPage() {
-  const [audits, setAudits] = useState([]);
-  const [successful, setSuccessful] = useState(0);
-  const [activeVerifiers, setActiveVerifiers] = useState(0);
-  const [usersMap, setUsersMap] = useState({});
+  const { audits, verifiers, users } = useAdminData();
+  const successful = useMemo(() => audits.filter(a => !a.event.toLowerCase().includes('reject') && !a.event.toLowerCase().includes('fail')).length, [audits]);
+  const activeVerifiers = verifiers.length;
+  
+  const usersMap = useMemo(() => {
+    const map = {};
+    users.forEach(s => map[s.id] = s.name);
+    verifiers.forEach(v => map[v.id] = v.name);
+    return map;
+  }, [users, verifiers]);
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('All Actions');
   const [statusFilter, setStatusFilter] = useState('All Status');
-
-  useEffect(() => {
-    const fetchAudits = () => {
-      fetch(`http://${window.location.hostname}:5000/api/admin/audits`)
-        .then(res => res.json())
-        .then(data => {
-          setAudits(data.audits || []);
-          setSuccessful((data.audits || []).filter(a => !a.event.toLowerCase().includes('reject') && !a.event.toLowerCase().includes('fail')).length);
-        });
-
-      fetch(`http://${window.location.hostname}:5000/api/admin/verifiers`)
-        .then(res => res.json())
-        .then(data => {
-          setActiveVerifiers((data.verifiers || []).length);
-          return data.verifiers || [];
-        })
-        .then(verifiers => {
-          fetch(`http://${window.location.hostname}:5000/api/admin/students`)
-            .then(res => res.json())
-            .then(data => {
-              const students = data.students || [];
-              const map = {};
-              students.forEach(s => map[s.id] = s.name);
-              verifiers.forEach(v => map[v.id] = v.name);
-              setUsersMap(map);
-            });
-        });
-    };
-
-    fetchAudits();
-    const interval = setInterval(fetchAudits, 3000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Derive unique action types for the dropdown
   const actionTypes = useMemo(() => {
@@ -824,24 +822,13 @@ function AuditPage() {
 }
 
 function ExamManagementPage() {
-  const [exams, setExams] = useState([]);
+  const { exams } = useAdminData();
   const [showModal, setShowModal] = useState(false);
   const [editExam, setEditExam] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const emptyForm = { courseCode: '', courseName: '', description: '', date: '', time: '', duration: 1, proctoring: 'Online Proctored', capacity: 50, status: 'Open' };
   const [form, setForm] = useState(emptyForm);
-
-  useEffect(() => {
-    const fetchExams = () => {
-      fetch(`http://${window.location.hostname}:5000/api/exam`)
-        .then(res => res.json())
-        .then(data => setExams(data.exams || []));
-    };
-    fetchExams();
-    const interval = setInterval(fetchExams, 3000);
-    return () => clearInterval(interval);
-  }, []);
 
   const openCreate = () => { setEditExam(null); setForm(emptyForm); setShowModal(true); };
   const openEdit = (exam) => { setEditExam(exam); setForm({ ...exam }); setShowModal(true); };
@@ -954,18 +941,11 @@ function ExamManagementPage() {
 }
 
 function BlockchainPage() {
-  const [verifications, setVerifications] = useState([]);
+  const { verifications } = useAdminData();
   const [gasPrice, setGasPrice] = useState('Loading...');
 
   useEffect(() => {
-    const fetchData = async () => {
-      // Fetch verifications from our backend
-      try {
-        const res = await fetch(`http://${window.location.hostname}:5000/api/admin/verifications`);
-        const data = await res.json();
-        setVerifications(data.verifications || []);
-      } catch (err) { console.error('Error fetching verifications', err); }
-
+    const fetchGas = async () => {
       // Fetch live Polygon Gas Price via public RPC
       try {
         const rpcRes = await fetch('https://rpc.ankr.com/polygon', {
@@ -986,8 +966,8 @@ function BlockchainPage() {
       }
     };
 
-    fetchData();
-    const interval = setInterval(fetchData, 3000); // Poll every 3 seconds for live updates
+    fetchGas();
+    const interval = setInterval(fetchGas, 60000); // Poll every 60 seconds for gas updates
     return () => clearInterval(interval);
   }, []);
 
@@ -1051,7 +1031,6 @@ function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState(adminUser);
   const [loading, setLoading] = useState(false);
-  const [actionsToday, setActionsToday] = useState(0);
   const fileInputRef = useRef(null);
   const [profilePic, setProfilePic] = useState(adminUser.profilePic || null);
 
@@ -1067,24 +1046,14 @@ function ProfilePage() {
     }
   };
 
-  useEffect(() => {
-    const fetchProfileAudits = () => {
-      fetch(`http://${window.location.hostname}:5000/api/admin/audits`)
-        .then(res => res.json())
-        .then(data => {
-          const todayActions = (data.audits || []).filter(a => {
-            const isToday = new Date(a.timestamp).toDateString() === new Date().toDateString();
-            const isMe = a.userId === adminUser.name || a.userId === adminUser.id;
-            return isToday && isMe;
-          });
-          setActionsToday(todayActions.length);
-        });
-    };
-    
-    fetchProfileAudits();
-    const interval = setInterval(fetchProfileAudits, 3000);
-    return () => clearInterval(interval);
-  }, [adminUser]);
+  const { audits } = useAdminData();
+  const actionsToday = useMemo(() => {
+    return audits.filter(a => {
+      const isToday = new Date(a.timestamp).toDateString() === new Date().toDateString();
+      const isMe = a.userId === adminUser.name || a.userId === adminUser.id;
+      return isToday && isMe;
+    }).length;
+  }, [audits, adminUser]);
 
   const handleEditToggle = () => {
     if (isEditing) {
@@ -1180,8 +1149,8 @@ function ProfilePage() {
 
 function VerifiersPage() {
   const API = `http://${window.location.hostname}:5000/api`;
-  const [verifiers, setVerifiers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { verifiers } = useAdminData();
+  const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
@@ -1190,18 +1159,7 @@ function VerifiersPage() {
   const [successMsg, setSuccessMsg] = useState('');
   const [form, setForm] = useState({ name: '', email: '', password: '', department: '', employeeId: '' });
 
-  const fetchVerifiers = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API}/admin/verifiers`);
-      const data = await res.json();
-      setVerifiers(data.verifiers || []);
-    } catch { /* silent */ } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { fetchVerifiers(); }, []);
+  const fetchVerifiers = () => {}; // No-op now as we use live data
 
   const handleAdd = async (e) => {
     e.preventDefault();
@@ -1386,7 +1344,6 @@ function SettingsPage() {
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeUsers, setActiveUsers] = useState('Loading...');
 
   const fetchSettings = async () => {
     try {
@@ -1400,23 +1357,11 @@ function SettingsPage() {
     }
   };
 
+  const { users, verifiers } = useAdminData();
+  const activeUsers = `${users.length} students, ${verifiers.length} verifiers`;
+
   useEffect(() => {
     fetchSettings();
-    
-    const fetchActiveUsers = () => {
-      Promise.all([
-        fetch(`http://${window.location.hostname}:5000/api/admin/students`).then(res => res.json()),
-        fetch(`http://${window.location.hostname}:5000/api/admin/verifiers`).then(res => res.json())
-      ]).then(([studentsData, verifiersData]) => {
-        const sCount = (studentsData.students || []).length;
-        const vCount = (verifiersData.verifiers || []).length;
-        setActiveUsers(`${sCount} students, ${vCount} verifiers`);
-      });
-    };
-
-    fetchActiveUsers();
-    const interval = setInterval(fetchActiveUsers, 3000);
-    return () => clearInterval(interval);
   }, []);
 
   const handleToggle = (section, field) => (newValue) => {
